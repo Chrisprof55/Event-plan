@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { withWriteTimeout } from '../utils/firestoreWrite';
 import {
   createEntriesFromAdd,
   filterEntriesAfterRemove,
@@ -45,8 +46,18 @@ export function useEventDetails(eventId) {
 
   const loading = Boolean(eventId) && loadedForEventId !== eventId;
 
+  const detailsRef = useRef(details);
+  detailsRef.current = details;
+
   useEffect(() => {
-    if (!eventId) return undefined;
+    if (!eventId) {
+      setDetails(EMPTY_DETAILS);
+      setLoadedForEventId(null);
+      return undefined;
+    }
+
+    setLoadedForEventId(null);
+    setError(null);
 
     const ref = doc(db, 'events', eventId, 'details', DETAILS_DOC_ID);
 
@@ -70,17 +81,25 @@ export function useEventDetails(eventId) {
     async (nextDetails) => {
       if (!eventId) return;
 
+      setDetails(nextDetails);
       setSaving(true);
+      setError(null);
       try {
         const ref = doc(db, 'events', eventId, 'details', DETAILS_DOC_ID);
-        await setDoc(
-          ref,
-          {
-            ...nextDetails,
-            detailsUpdatedAt: serverTimestamp(),
-          },
-          { merge: true },
+        await withWriteTimeout(
+          setDoc(
+            ref,
+            {
+              ...nextDetails,
+              detailsUpdatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          ),
         );
+      } catch (err) {
+        setError(err);
+        setDetails(detailsRef.current);
+        throw err;
       } finally {
         setSaving(false);
       }

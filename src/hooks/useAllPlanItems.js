@@ -12,7 +12,8 @@ export function useAllPlanItems() {
     ready,
   } = usePlanData();
 
-  const loading = !ready && (eventsLoading || inboxLoading || detailsLoading);
+  const loading =
+    !ready && eventsLoading && inboxLoading && detailsLoading;
   const error = eventsError || inboxError || detailsError;
 
   return { items, loading, error, eventsLoading, inboxLoading, detailsLoading };

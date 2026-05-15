@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import {
+  getFirestore,
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -17,8 +18,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-});
+function createFirestore() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager(),
+      }),
+    });
+  } catch (err) {
+    console.warn('Firestore persistence unavailable, using default cache.', err);
+    return getFirestore(app);
+  }
+}
 
+export const db = createFirestore();
 export const storage = getStorage(app);

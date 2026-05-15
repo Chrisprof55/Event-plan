@@ -51,7 +51,7 @@ export default function EventDetail({ eventId, onBack }) {
     [details.dishes, editingDish?.id],
   );
 
-  const loading = eventLoading || detailsLoading;
+  const showFullLoading = eventLoading || (detailsLoading && !event);
   const grandTotalLabel = formatGrandTotal(event?.grandTotal);
 
   const handleEditSubmit = async (fields) => {
@@ -107,6 +107,17 @@ export default function EventDetail({ eventId, onBack }) {
     setAttachToDish(null);
   };
 
+  const handleAddEntry = async (payload) => {
+    try {
+      const ok = await addEntry(payload);
+      if (ok) closeNovoItem();
+      return ok;
+    } catch (err) {
+      window.alert(err?.message ?? 'Não foi possível guardar o item.');
+      return false;
+    }
+  };
+
   const handleDishSave = async ({ dishId, date, time, location, name, quantity, noteUpdates }) => {
     await updateDishAnchor(
       dishId,
@@ -149,7 +160,7 @@ export default function EventDetail({ eventId, onBack }) {
         onPdfRemove={handlePdfRemove}
       />
 
-      {loading && (
+      {showFullLoading && (
         <div className="flex flex-1 items-center justify-center gap-2 py-20 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
           <span>A carregar…</span>
@@ -158,11 +169,11 @@ export default function EventDetail({ eventId, onBack }) {
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 lg:mx-8">
-          Erro ao carregar os detalhes do evento.
+          {error.message ?? 'Erro ao carregar os detalhes do evento.'}
         </div>
       )}
 
-      {!loading && (
+      {!showFullLoading && (
         <EventPlanLog
           entries={details.dishes}
           legacyNotes={details.notes}
@@ -192,7 +203,7 @@ export default function EventDetail({ eventId, onBack }) {
         eventId={eventId}
         event={event}
         saving={saving}
-        onAddEntry={addEntry}
+        onAddEntry={handleAddEntry}
         attachToDish={attachToDish}
       />
 

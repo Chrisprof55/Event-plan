@@ -117,8 +117,17 @@ export default function Dashboard({ onSelectEvent, onSelectNote, onOpenItemsList
   };
 
   const handleAddEntry = async (payload) => {
-    if (itemEventId) return addEntry(payload);
-    return addInboxItem(payload);
+    try {
+      const ok = itemEventId ? await addEntry(payload) : await addInboxItem(payload);
+      if (ok) {
+        setNovoItemOpen(false);
+        setItemEventId(null);
+      }
+      return ok;
+    } catch (err) {
+      window.alert(err?.message ?? 'Não foi possível guardar o item.');
+      return false;
+    }
   };
 
   const handleFormSubmit = async (fields) => {

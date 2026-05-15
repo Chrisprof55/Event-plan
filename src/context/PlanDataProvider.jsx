@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   addDoc,
   collection,
@@ -12,6 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { withWriteTimeout } from '../utils/firestoreWrite';
 import { buildChronologicalList } from '../utils/chronologicalItems';
 import { buildEntryDisplayName } from '../utils/entry';
 import {
@@ -73,8 +74,17 @@ export function PlanDataProvider({ children }) {
   const [detailsError, setDetailsError] = useState(null);
 
   const [ready, setReady] = useState(false);
+  const inboxItemsRef = useRef(inboxItems);
+  inboxItemsRef.current = inboxItems;
 
   useEffect(() => {
+    const bootTimeout = setTimeout(() => {
+      setEventsLoading(false);
+      setInboxLoading(false);
+      setDetailsLoading(false);
+      setReady(true);
+    }, 12000);
+
     const unsubs = [
       onSnapshot(
         collection(db, 'events'),
@@ -133,7 +143,10 @@ export function PlanDataProvider({ children }) {
       ),
     ];
 
-    return () => unsubs.forEach((fn) => fn());
+    return () => {
+      clearTimeout(bootTimeout);
+      unsubs.forEach((fn) => fn());
+    };
   }, []);
 
   const chronologicalItems = useMemo(
@@ -165,13 +178,22 @@ export function PlanDataProvider({ children }) {
   }, []);
 
   const persistInbox = useCallback(async (nextItems) => {
+    const previous = inboxItemsRef.current;
+    setInboxItems(nextItems);
     setInboxSaving(true);
+    setInboxError(null);
     try {
-      await setDoc(
-        doc(db, 'inbox', INBOX_DOC_ID),
-        { items: nextItems, updatedAt: serverTimestamp() },
-        { merge: true },
+      await withWriteTimeout(
+        setDoc(
+          doc(db, 'inbox', INBOX_DOC_ID),
+          { items: nextItems, updatedAt: serverTimestamp() },
+          { merge: true },
+        ),
       );
+    } catch (err) {
+      setInboxItems(previous);
+      setInboxError(err);
+      throw err;
     } finally {
       setInboxSaving(false);
     }
@@ -189,15 +211,15 @@ export function PlanDataProvider({ children }) {
         attachToDishId,
       });
       if (created.length === 0) return null;
-      await persistInbox([...inboxItems, ...created]);
+      await persistInbox([...inboxItemsRef.current, ...created]);
       return created[0]?.id ?? null;
     },
-    [inboxItems, persistInbox],
+    [persistInbox],
   );
 
   const updateInboxItem = useCallback(
     async (itemId, fields) => {
-      const next = inboxItems.map((item) => {
+      const next = inboxItemsRef.current.map((item) => {
         if (item.id !== itemId) return item;
         const updated = { ...item, ...fields };
         if (isNoteEntry(item) || item.entryType === 'note') {
@@ -220,19 +242,19 @@ export function PlanDataProvider({ children }) {
       });
       await persistInbox(next);
     },
-    [inboxItems, persistInbox],
+    [persistInbox],
   );
 
   const removeInboxItem = useCallback(
     async (itemId) => {
-      await persistInbox(filterEntriesAfterRemove(inboxItems, itemId));
+      await persistInbox(filterEntriesAfterRemove(inboxItemsRef.current, itemId));
     },
-    [inboxItems, persistInbox],
+    [persistInbox],
   );
 
   const assignInboxToEvent = useCallback(
     async (itemId, eventId) => {
-      const item = inboxItems.find((entry) => entry.id === itemId);
+      const item = inboxItemsRef.current.find((entry) => entry.id === itemId);
       if (!item || !eventId) return;
 
       setInboxSaving(true);
@@ -255,12 +277,12 @@ export function PlanDataProvider({ children }) {
           { dishes: [...dishes, ...toAdd], detailsUpdatedAt: serverTimestamp() },
           { merge: true },
         );
-        await persistInbox(inboxItems.filter((entry) => entry.id !== itemId));
+        await persistInbox(inboxItemsRef.current.filter((entry) => entry.id !== itemId));
       } finally {
         setInboxSaving(false);
       }
     },
-    [inboxItems, persistInbox],
+    [persistInbox],
   );
 
   const value = useMemo(
