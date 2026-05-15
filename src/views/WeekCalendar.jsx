@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { usePlanData } from '../context/PlanDataProvider';
 import { buildWeekGlance } from '../utils/weekGlance';
@@ -18,10 +18,12 @@ function TimeBadge({ time }) {
   );
 }
 
-function DaySection({ day, onSelectEvent, onSelectNote }) {
+function DaySection({ day, sectionRef, onSelectEvent, onSelectNote }) {
   return (
     <section
-      className={`rounded-2xl border shadow-sm ${
+      ref={sectionRef}
+      id={`week-day-${day.dateKey}`}
+      className={`scroll-mt-36 rounded-2xl border shadow-sm ${
         day.isToday
           ? 'border-amber-400/80 bg-post-it ring-1 ring-amber-300/50'
           : 'border-amber-200/80 bg-white'
@@ -95,9 +97,12 @@ function DaySection({ day, onSelectEvent, onSelectNote }) {
 
 export default function WeekCalendar({
   contentClassName = '',
+  focusDateKey = null,
+  onFocusConsumed,
   onSelectEvent,
   onSelectNote,
 }) {
+  const dayRefs = useRef({});
   const {
     events,
     eventDetailsById,
@@ -118,6 +123,16 @@ export default function WeekCalendar({
 
   const loading = !ready && (eventsLoading || inboxLoading || detailsLoading);
   const error = eventsError || inboxError || detailsError;
+
+  useEffect(() => {
+    if (!focusDateKey || loading) return;
+    const el = dayRefs.current[focusDateKey];
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      onFocusConsumed?.();
+    });
+  }, [focusDateKey, loading, days, onFocusConsumed]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-amber-50/40">
@@ -151,6 +166,9 @@ export default function WeekCalendar({
               <DaySection
                 key={day.dateKey}
                 day={day}
+                sectionRef={(el) => {
+                  dayRefs.current[day.dateKey] = el;
+                }}
                 onSelectEvent={onSelectEvent}
                 onSelectNote={onSelectNote}
               />

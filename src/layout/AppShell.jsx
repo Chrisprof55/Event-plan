@@ -3,7 +3,8 @@ import AddActionSheet from '../components/AddActionSheet';
 import BottomNav from '../components/BottomNav';
 import EventFormModal from '../components/EventFormModal';
 import NovoItemModal from '../components/NovoItemModal';
-import Dashboard from '../views/Dashboard';
+import EventsAgenda from '../views/Dashboard';
+import PlanDashboard from '../views/PlanDashboard';
 import EventDetail from '../views/EventDetail';
 import ItemsList from '../views/ItemsList';
 import WeekCalendar from '../views/WeekCalendar';
@@ -15,7 +16,8 @@ import { useInboxItems } from '../hooks/useInboxItems';
 const MAIN_BOTTOM_PAD = 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]';
 
 export default function AppShell() {
-  const [tab, setTab] = useState('agenda');
+  const [tab, setTab] = useState('dashboard');
+  const [calendarFocusDate, setCalendarFocusDate] = useState(null);
   const [detailRoute, setDetailRoute] = useState(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
@@ -165,10 +167,23 @@ export default function AppShell() {
     if (id) setDetailRoute({ type: 'note', id });
   };
 
+  const handleDashboardDaySelect = (dateKey) => {
+    setCalendarFocusDate(dateKey);
+    setTab('calendar');
+  };
+
   return (
     <div className="min-h-dvh bg-slate-50">
+      {tab === 'dashboard' && (
+        <PlanDashboard
+          contentClassName={MAIN_BOTTOM_PAD}
+          onSelectDay={handleDashboardDaySelect}
+          onSelectEvent={goEvent}
+          onSelectNote={goNote}
+        />
+      )}
       {tab === 'agenda' && (
-        <Dashboard
+        <EventsAgenda
           contentClassName={MAIN_BOTTOM_PAD}
           onSelectEvent={goEvent}
           onSelectNote={goNote}
@@ -182,6 +197,8 @@ export default function AppShell() {
       {tab === 'calendar' && (
         <WeekCalendar
           contentClassName={MAIN_BOTTOM_PAD}
+          focusDateKey={calendarFocusDate}
+          onFocusConsumed={() => setCalendarFocusDate(null)}
           onSelectEvent={goEvent}
           onSelectNote={goNote}
         />

@@ -1,17 +1,19 @@
-import { CalendarDays, CalendarRange, LayoutList, Plus } from 'lucide-react';
+import { CalendarDays, CalendarRange, LayoutDashboard, LayoutList, Plus } from 'lucide-react';
 
 function TabButton({ active, label, icon: Icon, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 transition active:scale-95 ${
+      className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 transition active:scale-95 ${
         active ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
       }`}
       aria-current={active ? 'page' : undefined}
     >
-      <Icon className={`h-6 w-6 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} aria-hidden />
-      <span className={`text-[11px] font-medium ${active ? 'font-semibold' : ''}`}>{label}</span>
+      <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} aria-hidden />
+      <span className={`text-[10px] font-medium sm:text-[11px] ${active ? 'font-semibold' : ''}`}>
+        {label}
+      </span>
     </button>
   );
 }
@@ -23,7 +25,14 @@ export default function BottomNav({ activeTab, onTabChange, onAddClick }) {
       style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
       aria-label="Navegação principal"
     >
-      <div className="mx-auto flex max-w-lg items-end gap-0 px-1 pt-2">
+      <div className="mx-auto flex max-w-lg items-end gap-0 px-0.5 pt-2">
+        <TabButton
+          active={activeTab === 'dashboard'}
+          label="Painel"
+          icon={LayoutDashboard}
+          onClick={() => onTabChange('dashboard')}
+        />
+
         <TabButton
           active={activeTab === 'agenda'}
           label="Eventos"
@@ -31,14 +40,7 @@ export default function BottomNav({ activeTab, onTabChange, onAddClick }) {
           onClick={() => onTabChange('agenda')}
         />
 
-        <TabButton
-          active={activeTab === 'calendar'}
-          label="Semana"
-          icon={CalendarRange}
-          onClick={() => onTabChange('calendar')}
-        />
-
-        <div className="flex w-14 shrink-0 justify-center">
+        <div className="flex w-12 shrink-0 justify-center sm:w-14">
           <button
             type="button"
             onClick={onAddClick}
@@ -48,6 +50,13 @@ export default function BottomNav({ activeTab, onTabChange, onAddClick }) {
             <Plus className="h-7 w-7 stroke-[2.5]" aria-hidden />
           </button>
         </div>
+
+        <TabButton
+          active={activeTab === 'calendar'}
+          label="Semana"
+          icon={CalendarRange}
+          onClick={() => onTabChange('calendar')}
+        />
 
         <TabButton
           active={activeTab === 'items'}

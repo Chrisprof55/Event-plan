@@ -54,6 +54,36 @@ export function formatWeekDayShort(dateKey) {
   }).format(parsed);
 }
 
+/** Load per day for heat strip (events + items count, normalized 0–1). */
+export function buildWeekHeatLoad(events, eventDetailsById, inboxItems) {
+  const days = buildWeekGlance(events, eventDetailsById, inboxItems);
+  const counts = days.map((day) => ({
+    dateKey: day.dateKey,
+    isToday: day.isToday,
+    shortLabel: day.shortLabel,
+    eventCount: day.events.length,
+    itemCount: day.items.length,
+    load: day.events.length + day.items.length,
+  }));
+  const maxLoad = Math.max(1, ...counts.map((d) => d.load));
+
+  return counts.map((day) => {
+    const parsed = parseIsoDate(day.dateKey);
+    const weekday = parsed
+      ? new Intl.DateTimeFormat('pt-PT', { weekday: 'short' }).format(parsed).replace('.', '')
+      : '—';
+    const dayNum = parsed ? parsed.getDate() : '';
+
+    return {
+      ...day,
+      weekday,
+      dayNum,
+      intensity: day.load / maxLoad,
+      isBusiest: day.load > 0 && day.load === maxLoad,
+    };
+  });
+}
+
 /** Next 7 days with events and items for at-a-glance calendar. */
 export function buildWeekGlance(events, eventDetailsById, inboxItems) {
   const todayKey = dateToInputValue(startOfToday());
