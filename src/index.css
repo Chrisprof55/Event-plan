@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@theme {
+  --color-background: var(--color-slate-50);
+  --color-text: var(--color-slate-900);
+  --color-post-it: #fef9c3;
+  --color-post-it-blue: #dbeafe;
+}
+body {
+  @apply bg-slate-50 text-slate-900 antialiased selection:bg-slate-200;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+@utility touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
