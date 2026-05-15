@@ -6,19 +6,14 @@ import {
   persistentSingleTabManager,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFirebaseConfig, getMissingFirebaseEnvKeys } from './utils/firebaseConfig';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+export const missingFirebaseEnvKeys = getMissingFirebaseEnvKeys();
+export const isFirebaseConfigured = missingFirebaseEnvKeys.length === 0;
 
-const app = initializeApp(firebaseConfig);
+const firebaseConfig = getFirebaseConfig();
 
-function createFirestore() {
+function createFirestore(app) {
   try {
     return initializeFirestore(app, {
       localCache: persistentLocalCache({
@@ -31,5 +26,19 @@ function createFirestore() {
   }
 }
 
-export const db = createFirestore();
-export const storage = getStorage(app);
+let app = null;
+let db = null;
+let storage = null;
+
+if (isFirebaseConfigured) {
+  app = initializeApp(firebaseConfig);
+  db = createFirestore(app);
+  storage = getStorage(app);
+} else {
+  console.error(
+    'Firebase is not configured. Missing environment variables:',
+    missingFirebaseEnvKeys.join(', '),
+  );
+}
+
+export { app, db, storage };
