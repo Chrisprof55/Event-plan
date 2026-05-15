@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { useEvents } from '../hooks/useEvents';
-import { useInboxItems } from '../hooks/useInboxItems';
 import { useAllPlanItems } from '../hooks/useAllPlanItems';
 import {
   rowDateHeading,
@@ -99,17 +97,11 @@ function ItemBlock({ item, onSelectEvent, onSelectNote }) {
 }
 
 export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
-  const { events, loading: eventsLoading, error: eventsError } = useEvents();
-  const { items: inboxItems, loading: inboxLoading, error: inboxError } = useInboxItems();
-  const { items, loading: detailsLoading, error: detailsError } = useAllPlanItems(
-    events,
-    inboxItems,
-  );
+  const { items, loading, error } = useAllPlanItems();
 
   const dateGroups = useMemo(() => groupItemsByDate(items), [items]);
 
-  const loading = eventsLoading || inboxLoading || detailsLoading;
-  const error = eventsError || inboxError || detailsError;
+  const showSpinner = loading && items.length === 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-amber-50/40">
@@ -135,7 +127,7 @@ export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
       </header>
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 pb-24">
-        {loading && (
+        {showSpinner && (
           <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             <span>A carregar…</span>
@@ -148,13 +140,13 @@ export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
           </div>
         )}
 
-        {!loading && !error && items.length === 0 && (
+        {!showSpinner && !error && items.length === 0 && (
           <p className="rounded-2xl border border-dashed border-amber-300 bg-white/60 px-4 py-10 text-center text-slate-500">
             Nenhum item ou nota registado.
           </p>
         )}
 
-        {!loading && !error && dateGroups.length > 0 && (
+        {!error && dateGroups.length > 0 && (
           <div className="space-y-5">
             {dateGroups.map((group) => (
               <section key={group.dateKey || '__no_date__'}>

@@ -1,15 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import { usePlanData } from '../context/PlanDataProvider';
 
 function toDate(value) {
   return value?.toDate?.() ?? null;
@@ -32,7 +22,7 @@ export function parseDateInput(dateString) {
   return Timestamp.fromDate(new Date(`${dateString}T12:00:00`));
 }
 
-function normalizeEvent(id, data) {
+export function normalizeEvent(id, data) {
   return {
     id,
     eventNumber: normalizeEventNumber(
@@ -64,7 +54,7 @@ export function sortEvents(events) {
   });
 }
 
-function buildEventPayload(fields) {
+export function buildEventPayload(fields) {
   const payload = { updatedAt: serverTimestamp() };
 
   if ('eventNumber' in fields) {
@@ -91,64 +81,21 @@ function buildEventPayload(fields) {
 }
 
 export function useEvents() {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    events,
+    eventsLoading: loading,
+    eventsError: error,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+  } = usePlanData();
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'events'),
-      (snapshot) => {
-        const next = snapshot.docs.map((docSnap) => normalizeEvent(docSnap.id, docSnap.data()));
-        setEvents(sortEvents(next));
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        setError(err);
-        setLoading(false);
-      },
-    );
-
-    return unsubscribe;
-  }, []);
-
-  const addEvent = useCallback(async ({ eventNumber, eventName, eventDate, endDate, pax }) => {
-    const trimmedName = (eventName ?? '').trim();
-
-    if (!trimmedName && !eventDate) {
-      throw new Error('Indique pelo menos o nome do evento ou a data de início.');
-    }
-
-    const docRef = await addDoc(collection(db, 'events'), {
-      ...buildEventPayload({ eventNumber, eventName, eventDate, endDate, pax }),
-      createdAt: serverTimestamp(),
-    });
-
-    return docRef.id;
-  }, []);
-
-  const updateEvent = useCallback(async (eventId, fields) => {
-    if (!eventId) return;
-
-    const payload = buildEventPayload(fields);
-    await updateDoc(doc(db, 'events', eventId), payload);
-  }, []);
-
-  const deleteEvent = useCallback(async (eventId) => {
-    if (!eventId) return;
-
-    await deleteDoc(doc(db, 'events', eventId, 'details', 'main')).catch(() => {});
-    await deleteDoc(doc(db, 'events', eventId));
-  }, []);
-
-  const sortedEvents = useMemo(() => sortEvents(events), [events]);
-
-  return { events: sortedEvents, loading, error, addEvent, updateEvent, deleteEvent };
+  return { events, loading, error, addEvent, updateEvent, deleteEvent };
 }
 
 export function useEvent(eventId) {
-  const { events, loading, error, updateEvent, deleteEvent } = useEvents();
+  const { events, eventsLoading: loading, eventsError: error, updateEvent, deleteEvent } =
+    usePlanData();
   const event = events.find((item) => item.id === eventId) ?? null;
 
   return { event, loading, error, updateEvent, deleteEvent };
