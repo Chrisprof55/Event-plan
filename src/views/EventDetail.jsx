@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import AddActionSheet from '../components/AddActionSheet';
 import DishEditModal from '../components/DishEditModal';
 import EventFormModal from '../components/EventFormModal';
 import EventPlanLog from '../components/EventPlanLog';
@@ -43,7 +44,9 @@ export default function EventDetail({ eventId, onBack }) {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [novoItemOpen, setNovoItemOpen] = useState(false);
+  const [novoItemMode, setNovoItemMode] = useState('dish');
   const [attachToDish, setAttachToDish] = useState(null);
   const [editingDish, setEditingDish] = useState(null);
 
@@ -100,8 +103,22 @@ export default function EventDetail({ eventId, onBack }) {
   const openAttachNote = (dish) => {
     setEditingDish(null);
     setAttachToDish(dish);
+    setNovoItemMode('note');
     setNovoItemOpen(true);
   };
+
+  const openAddMenu = () => {
+    setAttachToDish(null);
+    setAddSheetOpen(true);
+  };
+
+  const handleAddSheetSelect = (actionId) => {
+    setAddSheetOpen(false);
+    setNovoItemMode(actionId === 'note' ? 'note' : 'dish');
+    setNovoItemOpen(true);
+  };
+
+  const addSheetEventLabel = event?.eventName || event?.eventNumber || null;
 
   const closeNovoItem = () => {
     setNovoItemOpen(false);
@@ -154,7 +171,7 @@ export default function EventDetail({ eventId, onBack }) {
         onBack={onBack}
         titleBlock={titleBlock}
         grandTotalLabel={grandTotalLabel}
-        onAddItem={() => setNovoItemOpen(true)}
+        onAddItem={openAddMenu}
         onEdit={() => setEditModalOpen(true)}
         onDelete={handleDeleteEvent}
         addDisabled={!event}
@@ -205,6 +222,13 @@ export default function EventDetail({ eventId, onBack }) {
         onSubmit={handleEditSubmit}
       />
 
+      <AddActionSheet
+        open={addSheetOpen}
+        onClose={() => setAddSheetOpen(false)}
+        onSelect={handleAddSheetSelect}
+        eventLabel={addSheetEventLabel}
+      />
+
       <NovoItemModal
         open={novoItemOpen}
         onClose={closeNovoItem}
@@ -213,6 +237,7 @@ export default function EventDetail({ eventId, onBack }) {
         saving={saving}
         onAddEntry={handleAddEntry}
         attachToDish={attachToDish}
+        defaultMode={novoItemMode}
       />
 
       <DishEditModal

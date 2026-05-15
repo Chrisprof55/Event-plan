@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Archive, Loader2, Plus } from 'lucide-react';
+import EventsArchive from './EventsArchive';
 import QuickNoteCard from '../components/QuickNoteCard';
 import { EventTitleBlock } from '../components/EventTitleBlock';
 import { useEvents } from '../hooks/useEvents';
@@ -40,7 +41,7 @@ function EventCard({ event, index, highlighted, itemTarget, onSelect, onUpdate, 
           onQuickAdd(event);
         }}
         className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-slate-500 opacity-40 transition hover:bg-white/90 hover:text-slate-800 hover:opacity-100 group-hover:opacity-70"
-        aria-label="Adicionar item a este evento"
+        aria-label="Adicionar item ou nota a este evento"
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} />
       </button>
@@ -64,13 +65,14 @@ export default function Dashboard({
   contentClassName = '',
   onSelectEvent,
   onSelectNote,
-  onOpenNovoItem,
+  onOpenEventAdd,
   highlightId,
   highlightInboxId,
   itemEventId,
   novoItemOpen,
 }) {
-  const { events, loading, error, updateEvent } = useEvents();
+  const { events, archivedEvents, loading, error, updateEvent } = useEvents();
+  const [showArchive, setShowArchive] = useState(false);
   const {
     items: inboxItems,
     updateItem: updateInboxItem,
@@ -91,20 +93,45 @@ export default function Dashboard({
   };
 
   const handleQuickAdd = (event) => {
-    onOpenNovoItem?.(event.id, 'dish');
+    onOpenEventAdd?.(event.id);
   };
+
+  if (showArchive) {
+    return (
+      <EventsArchive
+        contentClassName={contentClassName}
+        onBack={() => setShowArchive(false)}
+        onSelectEvent={onSelectEvent}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-amber-50/40">
       <header className="sticky top-0 z-10 border-b border-amber-200/80 bg-white/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top,0px))] shadow-sm backdrop-blur-md">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Bairro Alto Hotel
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Eventos</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Próximos eventos e notas · ordem cronológica
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Bairro Alto Hotel
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Eventos</h1>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Próximos eventos e notas · ordem cronológica
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowArchive(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+          >
+            <Archive className="h-4 w-4" aria-hidden />
+            Arquivo
+            {archivedEvents.length > 0 && (
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-600">
+                {archivedEvents.length}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 

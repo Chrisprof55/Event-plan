@@ -207,7 +207,16 @@ export function expandEntriesForDisplay(entries) {
   return migrateEntriesList(entries);
 }
 
-export function createEntriesFromAdd({ name, quantity, date, time, location, note, attachToDishId }) {
+export function createEntriesFromAdd({
+  name,
+  quantity,
+  date,
+  time,
+  location,
+  note,
+  attachToDishId,
+  asQuickNote = false,
+}) {
   const trimmedName = (name ?? '').trim();
   const trimmedNote = (note ?? '').trim();
   const d = (date ?? '').trim();
@@ -215,6 +224,22 @@ export function createEntriesFromAdd({ name, quantity, date, time, location, not
   const l = (location ?? '').trim();
   const createdAt = new Date().toISOString();
   const entries = [];
+
+  if (asQuickNote && trimmedName) {
+    entries.push({
+      id: crypto.randomUUID(),
+      entryType: 'note',
+      name: trimmedName,
+      text: trimmedNote,
+      note: trimmedNote,
+      date: d,
+      time: t,
+      location: l,
+      attachedDishId: null,
+      createdAt,
+    });
+    return entries;
+  }
 
   if (attachToDishId && trimmedNote) {
     entries.push({

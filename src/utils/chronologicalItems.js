@@ -104,6 +104,8 @@ export function rowTitle(row) {
     const qty = entry.quantity > 1 ? `${entry.quantity}× ` : '';
     return `${qty}${(entry.name ?? '').trim() || 'Sem nome'}`;
   }
+  const named = (entry.name ?? '').trim();
+  if (named) return named;
   const text = getNoteText(entry);
   return text.split('\n')[0].trim().slice(0, 120) || getInboxItemTitle(entry);
 }

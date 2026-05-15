@@ -28,6 +28,7 @@ export default function NovoItemForm({
   const noteRef = useRef(null);
   const nameRef = useRef(null);
   const noteOnly = defaultMode === 'note' && !attachToDish;
+  const quickNoteInbox = noteOnly && !eventId;
   const defaultDate = dateToInputValue(event?.eventDate);
   const isInbox = !eventId;
 
@@ -43,7 +44,7 @@ export default function NovoItemForm({
 
   const attachMode = Boolean(attachToDish?.id);
   const multiDishMode = !attachMode && !noteOnly;
-  const fieldsEnabled = Boolean(eventId || showEventPicker || attachMode);
+  const fieldsEnabled = Boolean(eventId || attachMode || showEventPicker || noteOnly);
   const [queued, setQueued] = useState([]);
 
   const allowedDates = useMemo(
@@ -83,10 +84,11 @@ export default function NovoItemForm({
   useEffect(() => {
     if (attachToDish) return;
     requestAnimationFrame(() => {
-      if (noteOnly) noteRef.current?.focus();
+      if (quickNoteInbox) nameRef.current?.focus();
+      else if (noteOnly) noteRef.current?.focus();
       else nameRef.current?.focus();
     });
-  }, [noteOnly, attachToDish]);
+  }, [quickNoteInbox, noteOnly, attachToDish]);
 
   useEffect(() => {
     setQueued([]);
@@ -97,6 +99,7 @@ export default function NovoItemForm({
     note,
     date,
     attachToDishId: attachToDish?.id,
+    quickNote: quickNoteInbox,
   });
   const currentDishValid = Boolean((name ?? '').trim());
   const busy = saving || creatingEvent;
@@ -165,6 +168,7 @@ export default function NovoItemForm({
       location,
       note,
       attachToDishId: attachToDish?.id,
+      quickNote: quickNoteInbox,
     });
     if (added) {
       resetItemFields();
@@ -181,6 +185,7 @@ export default function NovoItemForm({
     note,
     attachMode,
     attachToDish?.id,
+    quickNoteInbox,
     onAddEntry,
     resetItemFields,
     focusNote,
@@ -251,6 +256,22 @@ export default function NovoItemForm({
         </p>
       )}
 
+      {quickNoteInbox && (
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">Nome</span>
+          <input
+            ref={nameRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nome da nota"
+            autoComplete="off"
+            className={inputClassName}
+            disabled={!fieldsEnabled}
+          />
+        </label>
+      )}
+
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-600">Data</span>
@@ -311,23 +332,31 @@ export default function NovoItemForm({
       )}
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-slate-600">Nota</span>
+        <span className="mb-1 block text-xs font-medium text-slate-600">
+          {quickNoteInbox ? 'Detalhes (opcional)' : 'Nota'}
+        </span>
         <textarea
           ref={noteRef}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           onKeyDown={handleNoteKeyDown}
           rows={3}
-          placeholder="Instruções, pedidos, observações…"
+          placeholder={
+            quickNoteInbox
+              ? 'Instruções, pedidos, observações…'
+              : 'Instruções, pedidos, observações…'
+          }
           className={`${inputClassName} min-h-[5.5rem] resize-y`}
           disabled={!fieldsEnabled}
         />
         <p className="mt-1 text-xs text-slate-500">
           {attachMode
             ? 'Nota para este prato. ⌘/Ctrl+Enter para adicionar.'
-            : noteOnly
-              ? 'Data obrigatória. Sem hora/local = nota geral do evento. ⌘/Ctrl+Enter.'
-              : 'Basta data e nota (sem hora/local = nota geral do evento). Prato opcional. ⌘/Ctrl+Enter.'}
+            : quickNoteInbox
+              ? 'O nome identifica a nota. Pode associar a um evento mais tarde. ⌘/Ctrl+Enter.'
+              : noteOnly
+                ? 'Data obrigatória. Sem hora/local = nota geral do evento. ⌘/Ctrl+Enter.'
+                : 'Basta data e nota (sem hora/local = nota geral do evento). Prato opcional. ⌘/Ctrl+Enter.'}
         </p>
       </label>
 
@@ -364,7 +393,7 @@ export default function NovoItemForm({
       </div>
       )}
 
-      {showEventPicker && !attachMode && (
+      {showEventPicker && !attachMode && !noteOnly && (
         <div className="space-y-3">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-600">

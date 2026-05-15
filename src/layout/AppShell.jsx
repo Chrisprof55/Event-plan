@@ -20,6 +20,7 @@ export default function AppShell() {
   const [calendarFocusDate, setCalendarFocusDate] = useState(null);
   const [detailRoute, setDetailRoute] = useState(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [addSheetEventId, setAddSheetEventId] = useState(null);
 
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventSaving, setEventSaving] = useState(false);
@@ -33,11 +34,28 @@ export default function AppShell() {
   const [creatingEventForItem, setCreatingEventForItem] = useState(false);
   const [highlightInboxId, setHighlightInboxId] = useState(null);
 
-  const { events, addEvent } = useEvents();
+  const { events, activeEvents, addEvent } = useEvents();
   const itemEvent = useMemo(
     () => events.find((ev) => ev.id === itemEventId) ?? null,
     [events, itemEventId],
   );
+  const addSheetEvent = useMemo(
+    () => events.find((ev) => ev.id === addSheetEventId) ?? null,
+    [events, addSheetEventId],
+  );
+  const addSheetEventLabel = addSheetEvent
+    ? addSheetEvent.eventName || addSheetEvent.eventNumber || null
+    : null;
+
+  const openAddSheet = (eventId = null) => {
+    setAddSheetEventId(eventId);
+    setAddSheetOpen(true);
+  };
+
+  const closeAddSheet = () => {
+    setAddSheetOpen(false);
+    setAddSheetEventId(null);
+  };
   const { addEntry, addEntries, saving: itemSaving } = useEventDetails(itemEventId);
   const {
     saving: inboxSaving,
@@ -130,7 +148,8 @@ export default function AppShell() {
   };
 
   const handleAddAction = (actionId) => {
-    setAddSheetOpen(false);
+    const scopedEventId = addSheetEventId;
+    closeAddSheet();
     if (actionId === 'event') {
       setEventFormError(null);
       setEventFormKey((key) => key + 1);
@@ -138,10 +157,10 @@ export default function AppShell() {
       return;
     }
     if (actionId === 'note') {
-      openNovoItem(null, 'note');
+      openNovoItem(scopedEventId, 'note');
       return;
     }
-    openNovoItem(null, 'dish');
+    openNovoItem(scopedEventId, 'dish');
   };
 
   if (detailRoute?.type === 'event') {
@@ -158,6 +177,7 @@ export default function AppShell() {
       <QuickNoteDetail
         noteId={detailRoute.id}
         onBack={() => setDetailRoute(null)}
+        onAssigned={(eventId) => setDetailRoute({ type: 'event', id: eventId })}
       />
     );
   }
@@ -187,7 +207,7 @@ export default function AppShell() {
           contentClassName={MAIN_BOTTOM_PAD}
           onSelectEvent={goEvent}
           onSelectNote={goNote}
-          onOpenNovoItem={openNovoItem}
+          onOpenEventAdd={openAddSheet}
           highlightId={highlightId}
           highlightInboxId={highlightInboxId}
           itemEventId={itemEventId}
@@ -239,13 +259,13 @@ export default function AppShell() {
         onClose={closeNovoItem}
         eventId={itemEventId}
         event={itemEvent}
-        events={events}
+        events={activeEvents}
         saving={itemSaving || inboxSaving}
         creatingEvent={creatingEventForItem}
         onAddEntry={handleAddEntry}
         onEventChange={setItemEventId}
         onCreateEvent={handleCreateEventForItem}
-        showEventPicker
+        showEventPicker={!itemEventId}
         defaultMode={novoItemMode}
       />
     </div>

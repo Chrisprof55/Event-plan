@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 import { ChevronRight, Loader2 } from 'lucide-react';
 import WeekHeatStrip from '../components/WeekHeatStrip';
 import { usePlanData } from '../context/PlanDataProvider';
-import { buildUpcomingDashboardItems, buildDashboardNotes } from '../utils/dashboardGlance';
+import {
+  buildUpcomingDashboardItems,
+  buildDashboardNotes,
+  groupDashboardNotes,
+  groupUpcomingByDate,
+} from '../utils/dashboardGlance';
 import { buildWeekHeatLoad } from '../utils/weekGlance';
 
 function TimeBadge({ time }) {
@@ -17,6 +22,8 @@ function TimeBadge({ time }) {
 }
 
 const VISIBLE_UPCOMING_ROWS = 3;
+const VISIBLE_NOTE_ROWS = 2;
+const NOTES_LIST_MAX_HEIGHT = '11.25rem';
 
 function UpcomingItemRow({ item, index, onSelectEvent, onSelectNote }) {
   const handleClick = () => {
@@ -37,7 +44,6 @@ function UpcomingItemRow({ item, index, onSelectEvent, onSelectNote }) {
       <TimeBadge time={item.time} />
       <span className="min-w-0 flex-1">
         <span className="block font-medium leading-snug text-slate-900">{item.title}</span>
-        <span className="mt-0.5 block text-xs text-slate-500">{item.dateLabel}</span>
         <span className="mt-0.5 block text-xs text-slate-600">
           {item.eventLabel}
           {item.location ? ` · ${item.location}` : ''}
@@ -48,40 +54,35 @@ function UpcomingItemRow({ item, index, onSelectEvent, onSelectNote }) {
   );
 }
 
-function NoteRow({ note, onSelectEvent, onSelectNote }) {
-  const openNote = () => {
-    if (note.isInbox) onSelectNote?.(note.entryId);
-    else onSelectEvent?.(note.eventId);
+function NoteGroupRow({ group, index, onSelectEvent, onSelectNote }) {
+  const handleClick = () => {
+    if (group.isInbox) onSelectNote?.(group.entryId);
+    else onSelectEvent?.(group.eventId);
   };
 
-  const openEventLink = (e) => {
-    e.stopPropagation();
-    if (note.isInbox) onSelectNote?.(note.entryId);
-    else if (note.eventId) onSelectEvent?.(note.eventId);
-  };
+  const shaded = index % 2 === 1;
+  const meta = [group.dateLabel, group.time, group.location].filter(Boolean).join(' · ');
 
   return (
-    <article className="rounded-xl border border-amber-200/70 bg-post-it p-3 shadow-sm">
-      <button type="button" onClick={openNote} className="w-full text-left">
-        <p className="line-clamp-3 text-sm leading-snug text-slate-800">{note.title}</p>
-        <p className="mt-1 text-xs text-slate-500">
-          {note.dateLabel}
-          {note.time ? ` · ${note.time}` : ''}
-          {note.location ? ` · ${note.location}` : ''}
-        </p>
-        {note.attachedDishTitle && (
-          <p className="mt-1 text-xs text-slate-600">No prato: {note.attachedDishTitle}</p>
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`flex w-full items-start gap-2 px-3 py-3 text-left transition hover:brightness-[0.98] active:brightness-95 ${
+        shaded ? 'bg-amber-50/90' : 'bg-white'
+      }`}
+    >
+      <TimeBadge time={group.time} />
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium leading-snug text-slate-900">{group.title}</span>
+        {group.subtitle && (
+          <span className="mt-0.5 block text-xs text-slate-600 line-clamp-2">{group.subtitle}</span>
         )}
-      </button>
-      <button
-        type="button"
-        onClick={openEventLink}
-        className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 ring-1 ring-amber-200/80 transition hover:bg-white"
-      >
-        {note.linkLabel}
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      </button>
-    </article>
+        {meta && (
+          <span className="mt-0.5 block text-xs text-slate-500">{meta}</span>
+        )}
+      </span>
+      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" aria-hidden />
+    </button>
   );
 }
 
@@ -114,10 +115,15 @@ export default function PlanDashboard({
     [events, eventDetailsById, inboxItems],
   );
 
-  const notes = useMemo(
-    () => buildDashboardNotes(events, eventDetailsById, inboxItems),
-    [events, eventDetailsById, inboxItems],
+  const upcomingDateGroups = useMemo(
+    () => groupUpcomingByDate(upcomingItems),
+    [upcomingItems],
   );
+
+  const noteGroups = useMemo(() => {
+    const notes = buildDashboardNotes(events, eventDetailsById, inboxItems);
+    return groupDashboardNotes(notes);
+  }, [events, eventDetailsById, inboxItems]);
 
   const loading = !ready && (eventsLoading || inboxLoading || detailsLoading);
   const error = eventsError || inboxError || detailsError;
@@ -129,7 +135,7 @@ export default function PlanDashboard({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
             Bairro Alto Hotel
           </p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Painel</h1>
+          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Dashboard</h1>
           <p className="mt-0.5 text-xs text-slate-500">Próximos items e notas</p>
         </div>
       </header>
@@ -144,7 +150,7 @@ export default function PlanDashboard({
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            Não foi possível carregar o painel.
+            Não foi possível carregar o dashboard.
           </div>
         )}
 
@@ -168,37 +174,62 @@ export default function PlanDashboard({
                   className="mt-3 max-h-[16.75rem] overflow-y-auto overscroll-contain rounded-xl border border-amber-200/80 [-webkit-overflow-scrolling:touch]"
                   aria-label="Lista de próximos items"
                 >
-                  {upcomingItems.map((item, index) => (
-                    <UpcomingItemRow
-                      key={item.id}
-                      item={item}
+                  {(() => {
+                    let rowIndex = 0;
+                    return upcomingDateGroups.map((group) => (
+                      <section key={group.dateKey || '__no_date__'}>
+                        <h3 className="sticky top-0 z-10 border-b border-amber-300/80 bg-amber-50/95 px-3 py-2 text-sm font-bold text-slate-800 shadow-sm backdrop-blur-md">
+                          {group.heading}
+                        </h3>
+                        {group.items.map((item) => {
+                          const index = rowIndex;
+                          rowIndex += 1;
+                          return (
+                            <UpcomingItemRow
+                              key={item.id}
+                              item={item}
+                              index={index}
+                              onSelectEvent={onSelectEvent}
+                              onSelectNote={onSelectNote}
+                            />
+                          );
+                        })}
+                      </section>
+                    ));
+                  })()}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-2xl border border-amber-200/80 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-900">Notas</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {noteGroups.length === 0
+                  ? 'Por evento'
+                  : noteGroups.length > VISIBLE_NOTE_ROWS
+                    ? `${noteGroups.length} notas · deslize para ver mais`
+                    : `${noteGroups.length} nota${noteGroups.length === 1 ? '' : 's'}`}
+              </p>
+              {noteGroups.length === 0 ? (
+                <p className="mt-4 rounded-xl border border-dashed border-amber-200 px-4 py-8 text-center text-sm text-slate-500">
+                  Sem notas futuras.
+                </p>
+              ) : (
+                <div
+                  className="mt-3 overflow-y-auto overscroll-contain rounded-xl border border-amber-200/80 [-webkit-overflow-scrolling:touch]"
+                  style={{ maxHeight: NOTES_LIST_MAX_HEIGHT }}
+                  aria-label="Lista de notas"
+                >
+                  {noteGroups.map((group, index) => (
+                    <NoteGroupRow
+                      key={group.id}
+                      group={group}
                       index={index}
                       onSelectEvent={onSelectEvent}
                       onSelectNote={onSelectNote}
                     />
                   ))}
                 </div>
-              )}
-            </section>
-
-            <section>
-              <h2 className="mb-2 text-sm font-semibold text-slate-900">Notas</h2>
-              {notes.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-4 py-8 text-center text-sm text-slate-500">
-                  Sem notas futuras.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {notes.map((note) => (
-                    <li key={note.id}>
-                      <NoteRow
-                        note={note}
-                        onSelectEvent={onSelectEvent}
-                        onSelectNote={onSelectNote}
-                      />
-                    </li>
-                  ))}
-                </ul>
               )}
             </section>
 

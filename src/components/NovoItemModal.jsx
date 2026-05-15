@@ -51,7 +51,7 @@ export default function NovoItemModal({
                 : defaultMode === 'note'
                   ? eventLabel
                     ? `Nota em: ${eventLabel}`
-                    : 'Nota rápida — evento opcional'
+                    : 'Nota rápida'
                   : eventLabel
                     ? `A adicionar a: ${eventLabel}`
                     : isInbox

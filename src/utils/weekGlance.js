@@ -1,5 +1,5 @@
 import { dateToInputValue } from './eventFields';
-import { startOfToday } from './dashboardCards';
+import { isEventUpcoming, startOfToday } from './eventArchive';
 import {
   buildChronologicalList,
   rowDateKey,
@@ -92,7 +92,7 @@ export function buildWeekGlance(events, eventDetailsById, inboxItems) {
 
   return dayKeys.map((dateKey) => {
     const dayEvents = (Array.isArray(events) ? events : [])
-      .filter((event) => eventOccursOnDay(event, dateKey))
+      .filter((event) => isEventUpcoming(event) && eventOccursOnDay(event, dateKey))
       .map((event) => ({
         id: event.id,
         label: event.eventName || event.eventNumber || 'Sem nome',

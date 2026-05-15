@@ -11,6 +11,7 @@ export function useInboxItems() {
     updateInboxItem,
     removeInboxItem,
     assignInboxToEvent,
+    convertInboxToNewEvent,
   } = usePlanData();
 
   return {
@@ -37,5 +38,6 @@ export function useInboxItems() {
     updateItem: updateInboxItem,
     removeItem: removeInboxItem,
     assignToEvent: assignInboxToEvent,
+    convertToNewEvent: convertInboxToNewEvent,
   };
 }

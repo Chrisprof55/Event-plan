@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { usePlanData } from '../context/PlanDataProvider';
+import { partitionEvents } from '../utils/eventArchive';
 
 function toDate(value) {
   return value?.toDate?.() ?? null;
@@ -90,7 +92,21 @@ export function useEvents() {
     deleteEvent,
   } = usePlanData();
 
-  return { events, loading, error, addEvent, updateEvent, deleteEvent };
+  const { activeEvents, archivedEvents } = useMemo(
+    () => partitionEvents(events),
+    [events],
+  );
+
+  return {
+    events,
+    activeEvents,
+    archivedEvents,
+    loading,
+    error,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+  };
 }
 
 export function useEvent(eventId) {

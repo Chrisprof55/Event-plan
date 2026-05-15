@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import { withWriteTimeout } from '../utils/firestoreWrite';
 import { buildChronologicalList } from '../utils/chronologicalItems';
-import { buildEntryDisplayName } from '../utils/entry';
+import { buildEntryDisplayName, getInboxItemTitle } from '../utils/entry';
 import {
   createEntriesFromAdd,
   createEntriesFromBatch,
@@ -201,7 +201,7 @@ export function PlanDataProvider({ children }) {
   }, []);
 
   const addInboxEntry = useCallback(
-    async ({ name, quantity, date, time, location, note, attachToDishId }) => {
+    async ({ name, quantity, date, time, location, note, attachToDishId, quickNote }) => {
       const created = createEntriesFromAdd({
         name,
         quantity,
@@ -210,6 +210,7 @@ export function PlanDataProvider({ children }) {
         location,
         note,
         attachToDishId,
+        asQuickNote: quickNote,
       });
       if (created.length === 0) return null;
       await persistInbox([...inboxItemsRef.current, ...created]);
@@ -234,7 +235,17 @@ export function PlanDataProvider({ children }) {
         if (item.id !== itemId) return item;
         const updated = { ...item, ...fields };
         if (isNoteEntry(item) || item.entryType === 'note') {
-          if ('text' in fields) updated.text = (fields.text ?? '').trim();
+          if ('name' in fields) updated.name = (fields.name ?? '').trim();
+          if ('note' in fields) {
+            const noteText = (fields.note ?? '').trim();
+            updated.note = noteText;
+            updated.text = noteText;
+          }
+          if ('text' in fields) {
+            const noteText = (fields.text ?? '').trim();
+            updated.text = noteText;
+            updated.note = noteText;
+          }
           updated.entryType = 'note';
         } else {
           if ('quantity' in fields) {
@@ -274,14 +285,24 @@ export function PlanDataProvider({ children }) {
         const snapshot = await getDoc(detailsRef);
         const data = snapshot.exists() ? snapshot.data() : {};
         const dishes = Array.isArray(data.dishes) ? data.dishes : [];
-        const toAdd = createEntriesFromAdd({
-          name: item.name,
-          quantity: item.quantity,
-          date: item.date,
-          time: item.time,
-          location: item.location,
-          note: (item.note ?? item.text ?? '').trim(),
-        });
+        const isQuickNote = item.entryType === 'note' && (item.name ?? '').trim();
+        const toAdd = isQuickNote
+          ? createEntriesFromAdd({
+              name: item.name,
+              note: (item.note ?? item.text ?? '').trim(),
+              date: item.date,
+              time: item.time,
+              location: item.location,
+              asQuickNote: true,
+            })
+          : createEntriesFromAdd({
+              name: item.name,
+              quantity: item.quantity,
+              date: item.date,
+              time: item.time,
+              location: item.location,
+              note: (item.note ?? item.text ?? '').trim(),
+            });
 
         await setDoc(
           detailsRef,
@@ -294,6 +315,29 @@ export function PlanDataProvider({ children }) {
       }
     },
     [persistInbox],
+  );
+
+  const convertInboxToNewEvent = useCallback(
+    async (itemId) => {
+      const item = inboxItemsRef.current.find((entry) => entry.id === itemId);
+      if (!item) return null;
+
+      const eventName = getInboxItemTitle(item);
+      if (!eventName || eventName === 'Sem nome') {
+        throw new Error('Dê um nome à nota antes de criar o evento.');
+      }
+
+      const eventId = await addEvent({
+        eventName,
+        eventDate: (item.date ?? '').trim(),
+        eventNumber: '',
+        endDate: '',
+        pax: '',
+      });
+      await assignInboxToEvent(itemId, eventId);
+      return eventId;
+    },
+    [addEvent, assignInboxToEvent],
   );
 
   const value = useMemo(
@@ -318,6 +362,7 @@ export function PlanDataProvider({ children }) {
       updateInboxItem,
       removeInboxItem,
       assignInboxToEvent,
+      convertInboxToNewEvent,
     }),
     [
       ready,
@@ -340,6 +385,7 @@ export function PlanDataProvider({ children }) {
       updateInboxItem,
       removeInboxItem,
       assignInboxToEvent,
+      convertInboxToNewEvent,
     ],
   );
 

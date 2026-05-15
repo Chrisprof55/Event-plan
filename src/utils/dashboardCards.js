@@ -1,23 +1,9 @@
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import { isEventUpcoming, startOfToday } from './eventArchive';
 
 function parseItemDate(dateStr) {
   const trimmed = String(dateStr ?? '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
   return new Date(`${trimmed}T12:00:00`);
-}
-
-function isEventUpcoming(event) {
-  const today = startOfToday();
-  if (!event.eventDate) return true;
-  const end =
-    event.endDate && event.endDate >= event.eventDate ? event.endDate : event.eventDate;
-  const endDay = new Date(end);
-  endDay.setHours(0, 0, 0, 0);
-  return endDay >= today;
 }
 
 function isNoteUpcoming(item) {
@@ -42,8 +28,6 @@ function noteSortKey(item) {
 
 /** Events + quick notes, upcoming only, soonest first. */
 export function buildDashboardCards(events, inboxItems) {
-  const today = startOfToday();
-
   const cards = [
     ...(Array.isArray(inboxItems) ? inboxItems : [])
       .filter(isNoteUpcoming)
@@ -70,4 +54,5 @@ export function buildDashboardCards(events, inboxItems) {
   });
 }
 
-export { startOfToday, parseItemDate, isEventUpcoming, isNoteUpcoming };
+export { parseItemDate, isNoteUpcoming };
+export { startOfToday, isEventUpcoming } from './eventArchive';

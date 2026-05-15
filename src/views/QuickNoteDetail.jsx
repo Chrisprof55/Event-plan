@@ -1,17 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import EventPlanLog from '../components/EventPlanLog';
 import NovoItemModal from '../components/NovoItemModal';
 import PlanDetailHeader from '../components/PlanDetailHeader';
 import { QuickNoteTitleBlock } from '../components/QuickNoteTitleBlock';
+import { getInboxItemTitle } from '../utils/entry';
 import { useEvents } from '../hooks/useEvents';
 import { useInboxItems } from '../hooks/useInboxItems';
 
-const selectClassName =
-  'min-h-12 w-full rounded-xl border border-amber-200 bg-white px-3 py-3 text-base text-slate-900 outline-none ring-amber-400 focus:ring-2';
-
-export default function QuickNoteDetail({ noteId, onBack }) {
-  const { events } = useEvents();
+export default function QuickNoteDetail({ noteId, onBack, onAssigned }) {
+  const { activeEvents } = useEvents();
   const {
     items,
     loading,
@@ -20,9 +18,11 @@ export default function QuickNoteDetail({ noteId, onBack }) {
     updateItem,
     removeItem,
     assignToEvent,
+    convertToNewEvent,
   } = useInboxItems();
 
   const [deleting, setDeleting] = useState(false);
+  const [filingBusy, setFilingBusy] = useState(false);
   const [novoItemOpen, setNovoItemOpen] = useState(false);
   const [attachToDish, setAttachToDish] = useState(null);
 
@@ -32,7 +32,7 @@ export default function QuickNoteDetail({ noteId, onBack }) {
   );
 
   const handleDelete = async () => {
-    const label = focusItem?.name || 'esta nota';
+    const label = getInboxItemTitle(focusItem) || 'esta nota';
     const confirmed = window.confirm(`Eliminar "${label}"?`);
     if (!confirmed) return;
 
@@ -45,11 +45,45 @@ export default function QuickNoteDetail({ noteId, onBack }) {
     }
   };
 
-  const handleAssign = async (eventId) => {
-    if (!focusItem || !eventId) return;
-    await assignToEvent(focusItem.id, eventId);
-    onBack();
+  const finishFiling = (eventId) => {
+    if (eventId) onAssigned?.(eventId);
+    else onBack();
   };
+
+  const handleAssign = useCallback(
+    async (eventId) => {
+      if (!focusItem || !eventId) return;
+      setFilingBusy(true);
+      try {
+        await assignToEvent(focusItem.id, eventId);
+        finishFiling(eventId);
+      } catch (err) {
+        window.alert(err?.message ?? 'Não foi possível associar a nota.');
+      } finally {
+        setFilingBusy(false);
+      }
+    },
+    [focusItem, assignToEvent, onAssigned, onBack],
+  );
+
+  const handleCreateEventFromTitle = useCallback(async () => {
+    if (!focusItem) return;
+    const title = getInboxItemTitle(focusItem);
+    if (!title || title === 'Sem nome') {
+      window.alert('Dê um nome à nota antes de criar o evento.');
+      return;
+    }
+
+    setFilingBusy(true);
+    try {
+      const eventId = await convertToNewEvent(focusItem.id);
+      finishFiling(eventId);
+    } catch (err) {
+      window.alert(err?.message ?? 'Não foi possível criar o evento.');
+    } finally {
+      setFilingBusy(false);
+    }
+  }, [focusItem, convertToNewEvent, onAssigned, onBack]);
 
   const openAttachNote = (dish) => {
     setAttachToDish(dish);
@@ -71,43 +105,19 @@ export default function QuickNoteDetail({ noteId, onBack }) {
           <QuickNoteTitleBlock
             item={focusItem}
             onUpdate={(fields) => updateItem(focusItem.id, fields)}
-            events={events}
-            onAssign={assignToEvent}
             size="detail"
+            activeEvents={activeEvents}
+            onCreateEvent={handleCreateEventFromTitle}
+            onAssignToEvent={handleAssign}
+            filingBusy={filingBusy}
           />
         ) : (
           <h1 className="text-2xl font-bold text-slate-900">Notas rápidas</h1>
         )}
       </>
     ),
-    [focusItem, events, updateItem, assignToEvent],
+    [focusItem, updateItem, activeEvents, filingBusy, handleCreateEventFromTitle, handleAssign],
   );
-
-  const assignExtra =
-    events.length > 0 && focusItem ? (
-      <div className="rounded-xl border border-amber-200/80 bg-white/70 px-4 py-3">
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-slate-700">
-            Associar nota focada a evento
-          </span>
-          <select
-            value=""
-            onChange={(e) => {
-              const eventId = e.target.value;
-              if (eventId) handleAssign(eventId);
-            }}
-            className={selectClassName}
-          >
-            <option value="">Selecione um evento…</option>
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.id}>
-                {ev.eventName || ev.eventNumber || 'Sem nome'}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-    ) : null;
 
   if (loading) {
     return (
@@ -134,7 +144,7 @@ export default function QuickNoteDetail({ noteId, onBack }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-amber-50/40">
+    <motion className="flex min-h-screen flex-col bg-amber-50/40">
       <PlanDetailHeader
         onBack={onBack}
         titleBlock={titleBlock}
@@ -142,7 +152,6 @@ export default function QuickNoteDetail({ noteId, onBack }) {
         onDelete={handleDelete}
         deleteDisabled={deleting}
         deleting={deleting}
-        extra={assignExtra}
       />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 lg:px-8 lg:py-6">
@@ -162,9 +171,9 @@ export default function QuickNoteDetail({ noteId, onBack }) {
         saving={saving}
         onAddEntry={addEntry}
         showEventPicker
-        events={events}
+        events={activeEvents}
         attachToDish={attachToDish}
       />
-    </div>
+    </motion>
   );
 }

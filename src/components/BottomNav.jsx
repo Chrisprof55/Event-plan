@@ -28,7 +28,7 @@ export default function BottomNav({ activeTab, onTabChange, onAddClick }) {
       <div className="mx-auto flex max-w-lg items-end gap-0 px-0.5 pt-2">
         <TabButton
           active={activeTab === 'dashboard'}
-          label="Painel"
+          label="Dashboard"
           icon={LayoutDashboard}
           onClick={() => onTabChange('dashboard')}
         />

@@ -1,6 +1,6 @@
 import { CalendarPlus, StickyNote, UtensilsCrossed, X } from 'lucide-react';
 
-const ACTIONS = [
+const ALL_ACTIONS = [
   {
     id: 'item',
     label: 'Item',
@@ -12,6 +12,7 @@ const ACTIONS = [
     id: 'note',
     label: 'Nota',
     description: 'Nota rápida ou no evento',
+    eventDescription: 'Nota neste evento',
     icon: StickyNote,
     tint: 'bg-post-it',
   },
@@ -24,8 +25,13 @@ const ACTIONS = [
   },
 ];
 
-export default function AddActionSheet({ open, onClose, onSelect }) {
+export default function AddActionSheet({ open, onClose, onSelect, eventLabel = null }) {
   if (!open) return null;
+
+  const forEvent = Boolean(eventLabel);
+  const actions = forEvent
+    ? ALL_ACTIONS.filter((action) => action.id !== 'event')
+    : ALL_ACTIONS;
 
   return (
     <div
@@ -45,14 +51,19 @@ export default function AddActionSheet({ open, onClose, onSelect }) {
         className="relative z-10 mx-auto w-full max-w-lg rounded-t-3xl border border-amber-200/80 bg-white px-4 pb-28 pt-4 shadow-2xl"
         style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="add-sheet-title" className="text-lg font-semibold text-slate-900">
-            Adicionar
-          </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="add-sheet-title" className="text-lg font-semibold text-slate-900">
+              Adicionar
+            </h2>
+            {forEvent && (
+              <p className="mt-0.5 truncate text-sm text-slate-600">Em: {eventLabel}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="touch-target flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            className="touch-target flex shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -60,7 +71,7 @@ export default function AddActionSheet({ open, onClose, onSelect }) {
         </div>
 
         <ul className="space-y-2">
-          {ACTIONS.map(({ id, label, description, icon: Icon, tint }) => (
+          {actions.map(({ id, label, description, eventDescription, icon: Icon, tint }) => (
             <li key={id}>
               <button
                 type="button"
@@ -74,7 +85,9 @@ export default function AddActionSheet({ open, onClose, onSelect }) {
                 </span>
                 <span>
                   <span className="block font-semibold text-slate-900">{label}</span>
-                  <span className="mt-0.5 block text-sm text-slate-500">{description}</span>
+                  <span className="mt-0.5 block text-sm text-slate-500">
+                    {forEvent && eventDescription ? eventDescription : description}
+                  </span>
                 </span>
               </button>
             </li>
