@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import TimeSelect from './TimeSelect';
 import { formatDishDateWithWeekday } from '../utils/dishes';
 import { canAddEntry } from '../utils/entry';
@@ -23,8 +23,11 @@ export default function NovoItemForm({
   onCreateEvent,
   showEventPicker = false,
   attachToDish = null,
+  defaultMode = 'dish',
 }) {
   const noteRef = useRef(null);
+  const nameRef = useRef(null);
+  const noteOnly = defaultMode === 'note' && !attachToDish;
   const defaultDate = dateToInputValue(event?.eventDate);
   const isInbox = !eventId;
 
@@ -39,7 +42,9 @@ export default function NovoItemForm({
   const [createError, setCreateError] = useState(null);
 
   const attachMode = Boolean(attachToDish?.id);
+  const multiDishMode = !attachMode && !noteOnly;
   const fieldsEnabled = Boolean(eventId || showEventPicker || attachMode);
+  const [queued, setQueued] = useState([]);
 
   const allowedDates = useMemo(
     () => (eventId && event ? getEventAllowedDateInputs(event) : []),
@@ -75,16 +80,83 @@ export default function NovoItemForm({
     setNote('');
   }, [attachToDish]);
 
+  useEffect(() => {
+    if (attachToDish) return;
+    requestAnimationFrame(() => {
+      if (noteOnly) noteRef.current?.focus();
+      else nameRef.current?.focus();
+    });
+  }, [noteOnly, attachToDish]);
+
+  useEffect(() => {
+    setQueued([]);
+  }, [eventId, attachToDish?.id, defaultMode]);
+
   const validEntry = canAddEntry({
     name,
     note,
     date,
     attachToDishId: attachToDish?.id,
   });
+  const currentDishValid = Boolean((name ?? '').trim());
   const busy = saving || creatingEvent;
-  const disabled = busy || !validEntry || !onAddEntry;
+
+  const buildSaveBatch = useCallback(() => {
+    const items = queued.map((row) => ({
+      name: row.name,
+      quantity: row.quantity,
+      note: row.note,
+    }));
+    if (currentDishValid) {
+      items.push({
+        name: name.trim(),
+        quantity,
+        note: note.trim(),
+      });
+    }
+    return items;
+  }, [queued, currentDishValid, name, quantity, note]);
+
+  const saveCount = queued.length + (currentDishValid ? 1 : 0);
+  const disabled = busy || !onAddEntry || (multiDishMode ? saveCount === 0 : !validEntry);
+
+  const addToQueue = () => {
+    if (!currentDishValid) return;
+    setQueued((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        quantity,
+        note: note.trim(),
+      },
+    ]);
+    resetItemFields();
+    requestAnimationFrame(() => nameRef.current?.focus());
+  };
+
+  const removeFromQueue = (id) => {
+    setQueued((prev) => prev.filter((row) => row.id !== id));
+  };
 
   const submitEntry = useCallback(async () => {
+    if (multiDishMode) {
+      const batchItems = buildSaveBatch();
+      if (batchItems.length === 0) return;
+
+      const added = await onAddEntry?.({
+        date,
+        time,
+        location,
+        batchItems,
+      });
+      if (added) {
+        setQueued([]);
+        resetItemFields();
+      }
+      return;
+    }
+
     const added = await onAddEntry?.({
       name: attachMode ? '' : name,
       quantity,
@@ -99,6 +171,8 @@ export default function NovoItemForm({
       focusNote();
     }
   }, [
+    multiDishMode,
+    buildSaveBatch,
     name,
     quantity,
     date,
@@ -199,7 +273,7 @@ export default function NovoItemForm({
                 <option>Sem datas no evento</option>
               </select>
               <p className="mt-1 text-xs text-amber-800">
-                Defina as datas no cartão do evento antes de adicionar itens.
+                Defina as datas no cartão do evento antes de adicionar items.
               </p>
             </>
           ) : (
@@ -229,6 +303,13 @@ export default function NovoItemForm({
         </label>
       </div>
 
+      {multiDishMode && (
+        <p className="text-xs text-slate-500">
+          Adicione vários pratos com a mesma data, hora e local. Use &quot;Adicionar à lista&quot; e
+          depois guarde todos de uma vez.
+        </p>
+      )}
+
       <label className="block">
         <span className="mb-1 block text-xs font-medium text-slate-600">Nota</span>
         <textarea
@@ -244,11 +325,13 @@ export default function NovoItemForm({
         <p className="mt-1 text-xs text-slate-500">
           {attachMode
             ? 'Nota para este prato. ⌘/Ctrl+Enter para adicionar.'
-            : 'Basta data e nota (sem hora/local = nota geral do evento). Prato opcional. ⌘/Ctrl+Enter.'}
+            : noteOnly
+              ? 'Data obrigatória. Sem hora/local = nota geral do evento. ⌘/Ctrl+Enter.'
+              : 'Basta data e nota (sem hora/local = nota geral do evento). Prato opcional. ⌘/Ctrl+Enter.'}
         </p>
       </label>
 
-      {!attachMode && (
+      {!attachMode && !noteOnly && (
       <div className="rounded-xl border border-dashed border-amber-300/70 bg-white/40 px-3 py-3">
         <p className="mb-2 text-xs font-medium text-slate-500">Prato (opcional)</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -267,6 +350,7 @@ export default function NovoItemForm({
           <label className="min-w-0 flex-1">
             <span className="mb-1 block text-xs font-medium text-slate-600">Prato/Item</span>
             <input
+              ref={nameRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -350,18 +434,69 @@ export default function NovoItemForm({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={disabled}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
-      >
-        {saving ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        ) : (
-          <Plus className="h-4 w-4" aria-hidden />
+      {multiDishMode && queued.length > 0 && (
+        <div className="rounded-xl border border-amber-200/80 bg-white/70 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Na lista ({queued.length})
+          </p>
+          <ul className="space-y-1.5">
+            {queued.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-center justify-between gap-2 rounded-lg bg-amber-50/80 px-2.5 py-2 text-sm text-slate-800"
+              >
+                <span className="min-w-0 truncate">
+                  {Math.max(1, Number(row.quantity) || 1) > 1
+                    ? `${row.quantity}× `
+                    : ''}
+                  {row.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeFromQueue(row.id)}
+                  className="touch-target flex shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
+                  aria-label={`Remover ${row.name}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {multiDishMode && (
+          <button
+            type="button"
+            onClick={addToQueue}
+            disabled={busy || !currentDishValid}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-amber-50 active:scale-[0.98] disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Adicionar à lista
+          </button>
         )}
-        Adicionar Item
-      </button>
+
+        <button
+          type="submit"
+          disabled={disabled}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50"
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <Plus className="h-4 w-4" aria-hidden />
+          )}
+          {noteOnly || attachMode
+            ? 'Adicionar nota'
+            : multiDishMode
+              ? saveCount === 1
+                ? 'Guardar 1 item'
+                : `Guardar ${saveCount} items`
+              : 'Adicionar item'}
+        </button>
+      </div>
     </form>
   );
 }

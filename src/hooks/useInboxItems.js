@@ -7,6 +7,7 @@ export function useInboxItems() {
     inboxError: error,
     inboxSaving: saving,
     addInboxEntry,
+    addInboxEntries,
     updateInboxItem,
     removeInboxItem,
     assignInboxToEvent,
@@ -19,6 +20,7 @@ export function useInboxItems() {
     saving,
     addItem: addInboxEntry,
     addEntry: addInboxEntry,
+    addEntries: addInboxEntries,
     addNoteToItem: async (dishId, fields) => {
       const trimmed = (fields?.note ?? '').trim();
       if (!trimmed || !dishId) return false;

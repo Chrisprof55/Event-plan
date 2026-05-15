@@ -27,6 +27,7 @@ export default function EventDetail({ eventId, onBack }) {
     error,
     saving,
     addEntry,
+    addEntries,
     addNoteToItem,
     updateEntry,
     updateDishAnchor,
@@ -70,7 +71,7 @@ export default function EventDetail({ eventId, onBack }) {
   const handleDeleteEvent = async () => {
     const label = event?.eventName || event?.eventNumber || 'este evento';
     const confirmed = window.confirm(
-      `Eliminar "${label}"?\n\nEsta ação remove o evento e todos os itens associados. Não pode ser desfeita.`,
+      `Eliminar "${label}"?\n\nEsta ação remove o evento e todos os items associados. Não pode ser desfeita.`,
     );
     if (!confirmed) return;
 
@@ -109,7 +110,14 @@ export default function EventDetail({ eventId, onBack }) {
 
   const handleAddEntry = async (payload) => {
     try {
-      const ok = await addEntry(payload);
+      const ok = payload.batchItems?.length
+        ? await addEntries({
+            date: payload.date,
+            time: payload.time,
+            location: payload.location,
+            items: payload.batchItems,
+          })
+        : await addEntry(payload);
       if (ok) closeNovoItem();
       return ok;
     } catch (err) {

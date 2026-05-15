@@ -1,13 +1,33 @@
 import { useMemo } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAllPlanItems } from '../hooks/useAllPlanItems';
 import {
+  groupListRowsByEventRoom,
   rowDateHeading,
   rowDateKey,
-  rowKindLabel,
-  rowMetaLine,
+  rowLocationLabel,
+  rowTimeLabel,
   rowTitle,
 } from '../utils/chronologicalItems';
+
+function TimeColumn({ time }) {
+  if (time) {
+    return (
+      <span className="flex w-[3.25rem] shrink-0 flex-col items-end pt-0.5 tabular-nums">
+        <span className="text-lg font-bold leading-none tracking-tight text-slate-900">{time}</span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="flex w-[3.25rem] shrink-0 items-start justify-end pt-1 text-sm font-medium text-slate-300"
+      aria-hidden
+    >
+      ··
+    </span>
+  );
+}
 
 function groupItemsByDate(items) {
   const groups = [];
@@ -20,7 +40,10 @@ function groupItemsByDate(items) {
       last.items.push(item);
     }
   }
-  return groups;
+  return groups.map((group) => ({
+    ...group,
+    blocks: groupListRowsByEventRoom(group.items),
+  }));
 }
 
 function NoteChildRow({ row, onSelectEvent, onSelectNote }) {
@@ -29,59 +52,77 @@ function NoteChildRow({ row, onSelectEvent, onSelectNote }) {
     else onSelectEvent?.(row.eventId);
   };
 
+  const time = rowTimeLabel(row);
+
   return (
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-start gap-2 border-l-2 border-amber-300/70 py-2 pl-3 pr-2 text-left transition hover:bg-amber-50/60"
+      className="flex w-full items-start gap-2 border-l-2 border-amber-300/70 py-2 pl-2 pr-3 text-left transition hover:bg-amber-50/60"
     >
-      <span className="mt-0.5 shrink-0 text-xs text-amber-800/50" aria-hidden>
-        ↳
-      </span>
+      {time ? (
+        <span className="w-[3.25rem] shrink-0 text-right text-sm font-semibold tabular-nums text-slate-700">
+          {time}
+        </span>
+      ) : (
+        <span className="w-[3.25rem] shrink-0 text-right text-xs text-amber-800/40" aria-hidden>
+          ↳
+        </span>
+      )}
       <span className="min-w-0 flex-1 text-sm leading-snug text-slate-600">{rowTitle(row)}</span>
     </button>
   );
 }
 
-function ListRow({ row, onSelectEvent, onSelectNote }) {
+function ListRow({ row, onSelectEvent, onSelectNote, grouped = false }) {
   const handleClick = () => {
     if (row.source === 'inbox') onSelectNote?.(row.entryId);
     else onSelectEvent?.(row.eventId);
   };
 
-  const isNote = rowKindLabel(row) === 'Nota';
-  const meta = rowMetaLine(row);
+  const time = rowTimeLabel(row);
+  const location = rowLocationLabel(row);
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full gap-3 px-4 py-3 text-left transition hover:bg-amber-50/50 active:bg-amber-50/80"
+      className={`flex w-full items-start gap-2 text-left transition hover:bg-amber-50/50 active:bg-amber-50/80 ${
+        grouped ? 'px-3 py-2.5' : 'px-3 py-3'
+      }`}
     >
-      <span
-        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-          isNote ? 'bg-post-it/80 text-slate-600' : 'bg-slate-100 text-slate-500'
-        }`}
-      >
-        {rowKindLabel(row)}
-      </span>
+      <TimeColumn time={time} />
+
       <span className="min-w-0 flex-1">
-        <span className="block font-medium text-slate-900">{rowTitle(row)}</span>
-        <span className="mt-0.5 block text-xs text-slate-500">{row.eventLabel}</span>
-        {meta && <span className="mt-0.5 block text-xs text-slate-400">{meta}</span>}
+        <span className="block font-medium leading-snug text-slate-900">{rowTitle(row)}</span>
+        {!grouped && (
+          <>
+            <span className="mt-1 block text-xs text-slate-500">{row.eventLabel}</span>
+            {location && (
+              <span className="mt-0.5 block text-xs font-medium text-slate-600">{location}</span>
+            )}
+          </>
+        )}
       </span>
     </button>
   );
 }
 
-function ItemBlock({ item, onSelectEvent, onSelectNote }) {
+function ItemBlock({ item, onSelectEvent, onSelectNote, grouped = false }) {
   const hasChildren = item.children?.length > 0;
 
   return (
-    <div className="border-b border-amber-200/60 last:border-b-0">
-      <ListRow row={item} onSelectEvent={onSelectEvent} onSelectNote={onSelectNote} />
+    <div className={grouped ? '' : 'border-b border-amber-200/60 last:border-b-0'}>
+      <ListRow
+        row={item}
+        grouped={grouped}
+        onSelectEvent={onSelectEvent}
+        onSelectNote={onSelectNote}
+      />
       {hasChildren && (
-        <div className="bg-amber-50/25 pb-1 pl-6 pr-2">
+        <div
+          className={`bg-amber-50/25 pb-1 pl-6 pr-2 ${grouped ? 'border-t border-amber-100/80' : ''}`}
+        >
           {item.children.map((child) => (
             <NoteChildRow
               key={child.id}
@@ -96,7 +137,44 @@ function ItemBlock({ item, onSelectEvent, onSelectNote }) {
   );
 }
 
-export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
+function EventRoomGroup({ block, onSelectEvent, onSelectNote }) {
+  return (
+    <div className="border-b border-amber-200/60 last:border-b-0">
+      <div className="border-b border-amber-200/70 bg-amber-50/60 px-3 py-2">
+        <p className="text-sm font-semibold text-slate-900">{block.eventLabel}</p>
+        <p className="text-xs font-medium text-slate-600">{block.location}</p>
+      </div>
+      <div className="divide-y divide-amber-100/90">
+        {block.rows.map((row) => (
+          <ItemBlock
+            key={row.id}
+            item={row}
+            grouped
+            onSelectEvent={onSelectEvent}
+            onSelectNote={onSelectNote}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListBlock({ block, onSelectEvent, onSelectNote }) {
+  if (block.type === 'group') {
+    return (
+      <EventRoomGroup
+        block={block}
+        onSelectEvent={onSelectEvent}
+        onSelectNote={onSelectNote}
+      />
+    );
+  }
+  return (
+    <ItemBlock item={block.row} onSelectEvent={onSelectEvent} onSelectNote={onSelectNote} />
+  );
+}
+
+export default function ItemsList({ contentClassName = '', onSelectEvent, onSelectNote }) {
   const { items, loading, error } = useAllPlanItems();
 
   const dateGroups = useMemo(() => groupItemsByDate(items), [items]);
@@ -104,29 +182,18 @@ export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
   const showSpinner = loading && items.length === 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-amber-50/40">
-      <header className="sticky top-0 z-10 border-b border-amber-200/80 bg-white/95 px-4 pb-4 pt-[max(1.5rem,env(safe-area-inset-top,0px))] shadow-sm backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-start gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="touch-target mt-0.5 flex shrink-0 items-center gap-2 rounded-xl bg-white/80 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-white active:scale-[0.98]"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden />
-            <span className="hidden sm:inline">Voltar</span>
-          </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Bairro Alto Hotel
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Itens e notas</h1>
-            <p className="mt-0.5 text-xs text-slate-500">Todos os pratos e notas · ordem cronológica</p>
-          </div>
+    <div className="flex min-h-dvh flex-col bg-amber-50/40">
+      <header className="sticky top-0 z-10 border-b border-amber-200/80 bg-white/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top,0px))] shadow-sm backdrop-blur-md">
+        <div className="mx-auto max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Bairro Alto Hotel
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Items</h1>
+          <p className="mt-0.5 text-xs text-slate-500">All dishes and notes · chronological</p>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 pb-24">
+      <main className={`mx-auto w-full max-w-3xl flex-1 px-4 py-4 ${contentClassName}`}>
         {showSpinner && (
           <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -136,7 +203,7 @@ export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            Não foi possível carregar os itens.
+            Não foi possível carregar os items.
           </div>
         )}
 
@@ -147,17 +214,26 @@ export default function ItemsList({ onBack, onSelectEvent, onSelectNote }) {
         )}
 
         {!error && dateGroups.length > 0 && (
-          <div className="space-y-5">
+          <div
+            className="space-y-5"
+            style={{
+              '--items-date-sticky-top':
+                'calc(max(1rem, env(safe-area-inset-top, 0px)) + 5.25rem)',
+            }}
+          >
             {dateGroups.map((group) => (
               <section key={group.dateKey || '__no_date__'}>
-                <h2 className="mb-1 border-b border-amber-300/80 pb-1 text-sm font-bold text-slate-800">
+                <h2
+                  className="sticky z-20 -mx-4 mb-1 border-b border-amber-300/80 bg-amber-50/95 px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm backdrop-blur-md"
+                  style={{ top: 'var(--items-date-sticky-top)' }}
+                >
                   {rowDateHeading(group.dateKey)}
                 </h2>
                 <div className="overflow-hidden rounded-xl border border-amber-200/80 bg-white shadow-sm">
-                  {group.items.map((item) => (
-                    <ItemBlock
-                      key={item.id}
-                      item={item}
+                  {group.blocks.map((block) => (
+                    <ListBlock
+                      key={block.id}
+                      block={block}
                       onSelectEvent={onSelectEvent}
                       onSelectNote={onSelectNote}
                     />

@@ -270,6 +270,22 @@ export function createEntriesFromAdd({ name, quantity, date, time, location, not
   return entries;
 }
 
+/** Multiple dishes/notes sharing the same date, time, and location. */
+export function createEntriesFromBatch({ date, time, location, items, attachToDishId }) {
+  const list = Array.isArray(items) ? items : [];
+  return list.flatMap((item) =>
+    createEntriesFromAdd({
+      name: item.name,
+      quantity: item.quantity,
+      note: item.note ?? '',
+      date,
+      time,
+      location,
+      attachToDishId,
+    }),
+  );
+}
+
 export function filterEntriesAfterRemove(entries, entryId) {
   const { targetId, stripLegacyNoteFromDish } = resolveEntryRemoveId(entryId);
 

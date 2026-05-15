@@ -17,6 +17,7 @@ import { buildChronologicalList } from '../utils/chronologicalItems';
 import { buildEntryDisplayName } from '../utils/entry';
 import {
   createEntriesFromAdd,
+  createEntriesFromBatch,
   filterEntriesAfterRemove,
   isNoteEntry,
   migrateEntriesList,
@@ -217,6 +218,16 @@ export function PlanDataProvider({ children }) {
     [persistInbox],
   );
 
+  const addInboxEntries = useCallback(
+    async ({ date, time, location, items }) => {
+      const created = createEntriesFromBatch({ date, time, location, items });
+      if (created.length === 0) return null;
+      await persistInbox([...inboxItemsRef.current, ...created]);
+      return created[0]?.id ?? null;
+    },
+    [persistInbox],
+  );
+
   const updateInboxItem = useCallback(
     async (itemId, fields) => {
       const next = inboxItemsRef.current.map((item) => {
@@ -303,6 +314,7 @@ export function PlanDataProvider({ children }) {
       updateEvent,
       deleteEvent,
       addInboxEntry,
+      addInboxEntries,
       updateInboxItem,
       removeInboxItem,
       assignInboxToEvent,
@@ -324,6 +336,7 @@ export function PlanDataProvider({ children }) {
       updateEvent,
       deleteEvent,
       addInboxEntry,
+      addInboxEntries,
       updateInboxItem,
       removeInboxItem,
       assignInboxToEvent,

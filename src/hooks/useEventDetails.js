@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { withWriteTimeout } from '../utils/firestoreWrite';
 import {
   createEntriesFromAdd,
+  createEntriesFromBatch,
   filterEntriesAfterRemove,
   isNoteEntry,
   migrateEntriesList,
@@ -155,6 +156,26 @@ export function useEventDetails(eventId) {
     [details, persist],
   );
 
+  const addEntries = useCallback(
+    async ({ date, time, location, items, attachToDishId }) => {
+      const created = createEntriesFromBatch({
+        date,
+        time,
+        location,
+        items,
+        attachToDishId,
+      });
+      if (created.length === 0) return false;
+
+      await persist({
+        ...details,
+        dishes: [...details.dishes, ...created],
+      });
+      return true;
+    },
+    [details, persist],
+  );
+
   const addNoteToItem = useCallback(
     async (dishId, { note, date, time, location }) => {
       const trimmed = (note ?? '').trim();
@@ -291,6 +312,7 @@ export function useEventDetails(eventId) {
     saving,
     addDish,
     addEntry,
+    addEntries,
     addNoteToItem,
     updateEntry,
     updateDishAnchor,

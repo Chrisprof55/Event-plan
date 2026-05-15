@@ -108,6 +108,14 @@ export function rowTitle(row) {
   return text.split('\n')[0].trim().slice(0, 120) || getInboxItemTitle(entry);
 }
 
+export function rowTimeLabel(row) {
+  return getDishTime(row.entry) || null;
+}
+
+export function rowLocationLabel(row) {
+  return getDishLocation(row.entry) || null;
+}
+
 export function rowMetaLine(row) {
   const time = getDishTime(row.entry);
   const location = getDishLocation(row.entry);
@@ -118,4 +126,72 @@ export function rowMetaLine(row) {
 
 export function rowDateHeading(dateKey) {
   return dateKey ? formatDishDateWithWeekday(dateKey) : 'Sem data';
+}
+
+function rowTimeSortKey(row) {
+  const match = String(getDishTime(row.entry) ?? '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+/** Group key when event + room (location) are set — event items only. */
+export function eventRoomGroupKey(row) {
+  if (row.source !== 'event' || !row.eventId) return null;
+  const location = getDishLocation(row.entry);
+  if (!location) return null;
+  return `${row.eventId}::${location.toLowerCase()}`;
+}
+
+/**
+ * Within a single date, merge rows that share event + room into one block (2+ items).
+ * Returns { type: 'single', row } | { type: 'group', eventLabel, location, rows[] }.
+ */
+export function groupListRowsByEventRoom(rows) {
+  const buckets = new Map();
+
+  for (const row of rows) {
+    const key = eventRoomGroupKey(row);
+    if (!key) continue;
+    const bucket = buckets.get(key) ?? {
+      key,
+      eventLabel: row.eventLabel,
+      location: getDishLocation(row.entry),
+      rows: [],
+    };
+    bucket.rows.push(row);
+    buckets.set(key, bucket);
+  }
+
+  const groupedKeys = new Set(
+    [...buckets.entries()].filter(([, b]) => b.rows.length >= 2).map(([k]) => k),
+  );
+
+  const blocks = [];
+  const placedGroups = new Set();
+
+  for (const row of rows) {
+    const key = eventRoomGroupKey(row);
+    if (key && groupedKeys.has(key)) {
+      if (!placedGroups.has(key)) {
+        placedGroups.add(key);
+        const bucket = buckets.get(key);
+        const sorted = [...bucket.rows].sort(
+          (a, b) => rowTimeSortKey(a) - rowTimeSortKey(b) || a.id.localeCompare(b.id),
+        );
+        blocks.push({
+          type: 'group',
+          id: `group-${key}`,
+          eventLabel: bucket.eventLabel,
+          location: bucket.location,
+          rows: sorted,
+        });
+      }
+      continue;
+    }
+    blocks.push({ type: 'single', id: row.id, row });
+  }
+
+  return blocks;
 }

@@ -14,6 +14,7 @@ export default function NovoItemModal({
   onCreateEvent,
   showEventPicker = false,
   attachToDish = null,
+  defaultMode = 'dish',
 }) {
   if (!open) return null;
 
@@ -38,16 +39,24 @@ export default function NovoItemModal({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-amber-200/80 p-5 pb-4">
           <div>
             <h2 id="novo-item-title" className="text-xl font-semibold text-slate-900">
-              {attachToDish ? 'Nota no item' : 'Novo Item'}
+              {attachToDish
+                ? 'Nota no item'
+                : defaultMode === 'note'
+                  ? 'Nova nota'
+                  : 'Novo item'}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
               {attachToDish
                 ? `Para: ${attachToDish.name}`
-                : eventLabel
-                  ? `A adicionar a: ${eventLabel}`
-                  : isInbox
-                    ? 'Nota ou prato — evento opcional'
-                    : 'Nota, data e prato opcional'}
+                : defaultMode === 'note'
+                  ? eventLabel
+                    ? `Nota em: ${eventLabel}`
+                    : 'Nota rápida — evento opcional'
+                  : eventLabel
+                    ? `A adicionar a: ${eventLabel}`
+                    : isInbox
+                      ? 'Prato — evento opcional'
+                      : 'Data, hora e prato'}
             </p>
           </div>
           <button
@@ -72,6 +81,7 @@ export default function NovoItemModal({
             onCreateEvent={onCreateEvent}
             showEventPicker={showEventPicker && !attachToDish}
             attachToDish={attachToDish}
+            defaultMode={defaultMode}
           />
         </div>
       </div>
