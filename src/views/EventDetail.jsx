@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import DishEditModal from '../components/DishEditModal';
 import EventFormModal from '../components/EventFormModal';
 import EventPlanLog from '../components/EventPlanLog';
 import NovoItemModal from '../components/NovoItemModal';
+import { getAttachedNotes } from '../utils/planEntries';
 import PlanDetailHeader from '../components/PlanDetailHeader';
 import { EventTitleBlock } from '../components/EventTitleBlock';
 import { deleteStoredPdf, useEventPdf } from '../hooks/useEventPdf';
@@ -27,6 +29,7 @@ export default function EventDetail({ eventId, onBack }) {
     addEntry,
     addNoteToItem,
     updateEntry,
+    updateDishAnchor,
     removeEntry,
   } = useEventDetails(eventId);
   const { uploadPdf, removePdf, uploading: pdfUploading } = useEventPdf(
@@ -41,6 +44,12 @@ export default function EventDetail({ eventId, onBack }) {
   const [deleting, setDeleting] = useState(false);
   const [novoItemOpen, setNovoItemOpen] = useState(false);
   const [attachToDish, setAttachToDish] = useState(null);
+  const [editingDish, setEditingDish] = useState(null);
+
+  const editingAttachedNotes = useMemo(
+    () => getAttachedNotes(details.dishes, editingDish?.id),
+    [details.dishes, editingDish?.id],
+  );
 
   const loading = eventLoading || detailsLoading;
   const grandTotalLabel = formatGrandTotal(event?.grandTotal);
@@ -88,6 +97,7 @@ export default function EventDetail({ eventId, onBack }) {
   };
 
   const openAttachNote = (dish) => {
+    setEditingDish(null);
     setAttachToDish(dish);
     setNovoItemOpen(true);
   };
@@ -95,6 +105,18 @@ export default function EventDetail({ eventId, onBack }) {
   const closeNovoItem = () => {
     setNovoItemOpen(false);
     setAttachToDish(null);
+  };
+
+  const handleDishSave = async ({ dishId, date, time, location, name, quantity, noteUpdates }) => {
+    await updateDishAnchor(
+      dishId,
+      { date, time, location, name, quantity },
+      noteUpdates,
+    );
+  };
+
+  const handleAddNoteFromEdit = (dish) => {
+    openAttachNote(dish);
   };
 
   const titleBlock = useMemo(
@@ -141,16 +163,16 @@ export default function EventDetail({ eventId, onBack }) {
       )}
 
       {!loading && (
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 lg:px-8 lg:py-6">
-          <EventPlanLog
-            entries={details.dishes}
-            legacyNotes={details.notes}
-            onUpdateEntry={updateEntry}
-            onRemoveEntry={removeEntry}
-            onAddNoteToItem={openAttachNote}
-            emptyMessage="Nenhum item. Use + para adicionar pratos ou notas."
-          />
-        </main>
+        <EventPlanLog
+          entries={details.dishes}
+          legacyNotes={details.notes}
+          onUpdateEntry={updateEntry}
+          onRemoveEntry={removeEntry}
+          onAddNoteToItem={openAttachNote}
+          onEditDish={setEditingDish}
+          pinEventNotesUnderHeader
+          emptyMessage="Nenhum item. Use + para adicionar pratos ou notas."
+        />
       )}
 
       <EventFormModal
@@ -172,6 +194,18 @@ export default function EventDetail({ eventId, onBack }) {
         saving={saving}
         onAddEntry={addEntry}
         attachToDish={attachToDish}
+      />
+
+      <DishEditModal
+        open={Boolean(editingDish)}
+        dish={editingDish}
+        attachedNotes={editingAttachedNotes}
+        event={event}
+        saving={saving}
+        onClose={() => setEditingDish(null)}
+        onSave={handleDishSave}
+        onRemoveNote={removeEntry}
+        onAddNote={handleAddNoteFromEdit}
       />
     </div>
   );

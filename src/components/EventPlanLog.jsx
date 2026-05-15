@@ -1,34 +1,39 @@
 import { useMemo } from 'react';
 import DishInlineChip from './DishInlineChip';
 import NotePostIt from './NotePostIt';
-import { groupPlanByDate, prepareEntriesForDisplay } from '../utils/planEntries';
+import { buildPlanLogLayout } from '../utils/planEntries';
 
-export default function EventPlanLog({
-  entries,
-  legacyNotes = [],
+function EventScopeNotesList({ notes, highlightId, onUpdateEntry, onRemoveEntry }) {
+  if (notes.length === 0) return null;
+
+  return (
+    <ul className="space-y-2" aria-label="Notas gerais do evento">
+      {notes.map((note, i) => (
+        <li key={note.id}>
+          <NotePostIt
+            entry={note}
+            index={i}
+            highlighted={highlightId === note.id}
+            onUpdate={onUpdateEntry}
+            onRemove={onRemoveEntry}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DateGroupedLog({
+  dateGroups,
   highlightId,
   onUpdateEntry,
   onRemoveEntry,
   onAddNoteToItem,
-  emptyMessage,
+  onEditDish,
   events,
   onAssignDish,
 }) {
-  const dateGroups = useMemo(
-    () => groupPlanByDate(prepareEntriesForDisplay(entries, legacyNotes)),
-    [entries, legacyNotes],
-  );
-
-  const hasContent =
-    entries.length > 0 || (Array.isArray(legacyNotes) && legacyNotes.length > 0);
-
-  if (!hasContent) {
-    return (
-      <p className="rounded-2xl border border-dashed border-amber-300 bg-white/60 px-4 py-10 text-center text-base text-slate-500">
-        {emptyMessage ?? 'Nenhum item adicionado.'}
-      </p>
-    );
-  }
+  if (dateGroups.length === 0) return null;
 
   return (
     <ul className="space-y-6">
@@ -37,22 +42,6 @@ export default function EventPlanLog({
           <h3 className="mb-3 border-b border-amber-300/80 pb-1 text-base font-bold text-slate-900">
             {dateGroup.dateLabel}
           </h3>
-
-          {dateGroup.eventNotes.length > 0 && (
-            <ul className="mb-4 space-y-2">
-              {dateGroup.eventNotes.map((note, i) => (
-                <li key={note.id}>
-                  <NotePostIt
-                    entry={note}
-                    index={i}
-                    highlighted={highlightId === note.id}
-                    onUpdate={onUpdateEntry}
-                    onRemove={onRemoveEntry}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
 
           <ul className="space-y-3">
             {dateGroup.slots.map((slot) => (
@@ -87,11 +76,9 @@ export default function EventPlanLog({
                           <DishInlineChip
                             dish={dish}
                             highlighted={highlightId === dish.id}
-                            onUpdate={onUpdateEntry}
+                            onEdit={onEditDish}
                             onRemove={onRemoveEntry}
                             onAddNoteToItem={onAddNoteToItem}
-                            events={events}
-                            onAssignEvent={onAssignDish}
                           />
                           {(slot.attachedByDish[dish.id] ?? []).map((note, i) => (
                             <NotePostIt
@@ -115,5 +102,79 @@ export default function EventPlanLog({
         </li>
       ))}
     </ul>
+  );
+}
+
+export default function EventPlanLog({
+  entries,
+  legacyNotes = [],
+  highlightId,
+  onUpdateEntry,
+  onRemoveEntry,
+  onAddNoteToItem,
+  onEditDish,
+  emptyMessage,
+  events,
+  onAssignDish,
+  pinEventNotesUnderHeader = false,
+}) {
+  const { eventScopeNotes, dateGroups } = useMemo(
+    () => buildPlanLogLayout(entries, legacyNotes),
+    [entries, legacyNotes],
+  );
+
+  const hasContent =
+    entries.length > 0 || (Array.isArray(legacyNotes) && legacyNotes.length > 0);
+
+  if (!hasContent) {
+    return (
+      <p className="rounded-2xl border border-dashed border-amber-300 bg-white/60 px-4 py-10 text-center text-base text-slate-500">
+        {emptyMessage ?? 'Nenhum item adicionado.'}
+      </p>
+    );
+  }
+
+  const noteProps = { highlightId, onUpdateEntry, onRemoveEntry };
+  const datedProps = {
+    ...noteProps,
+    onAddNoteToItem,
+    onEditDish,
+    events,
+    onAssignDish,
+    dateGroups,
+  };
+
+  const eventNotes = (
+    <EventScopeNotesList notes={eventScopeNotes} {...noteProps} />
+  );
+
+  const datedLog = <DateGroupedLog {...datedProps} />;
+
+  if (pinEventNotesUnderHeader) {
+    return (
+      <>
+        {eventScopeNotes.length > 0 && (
+          <section className="mx-auto w-full max-w-3xl shrink-0 border-b border-amber-200/80 bg-post-it/50 px-4 py-3 lg:px-8">
+            {eventNotes}
+          </section>
+        )}
+        <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-4 lg:px-8 lg:py-6">
+          {datedLog ?? (
+            eventScopeNotes.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-amber-300 bg-white/60 px-4 py-10 text-center text-base text-slate-500">
+                {emptyMessage ?? 'Nenhum item adicionado.'}
+              </p>
+            ) : null
+          )}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {eventNotes}
+      {datedLog}
+    </>
   );
 }

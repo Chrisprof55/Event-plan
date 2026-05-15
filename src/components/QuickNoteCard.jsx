@@ -22,7 +22,6 @@ export default function QuickNoteCard({
         className={`flex min-h-[7rem] w-full cursor-pointer rounded-2xl border border-amber-200/70 p-4 pr-12 text-left shadow-md transition hover:shadow-lg active:scale-[0.99] ${tint} ${
           highlighted ? 'ring-2 ring-slate-900/25' : ''
         }`}
-        style={{ transform: index % 2 === 0 ? 'rotate(-0.4deg)' : 'rotate(0.35deg)' }}
       >
         <QuickNoteTitleBlock item={item} preview />
 

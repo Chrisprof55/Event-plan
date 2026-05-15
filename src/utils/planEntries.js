@@ -34,6 +34,13 @@ export function isEventScopeNote(entry) {
   return isNoteEntry(entry) && !entry.attachedDishId && !getDishTime(entry) && !getDishLocation(entry);
 }
 
+export function getAttachedNotes(entries, dishId) {
+  if (!dishId) return [];
+  return (Array.isArray(entries) ? entries : []).filter(
+    (entry) => isNoteEntry(entry) && entry.attachedDishId === dishId,
+  );
+}
+
 export function resolveEntryRemoveId(entryId) {
   if (typeof entryId !== 'string') return { targetId: entryId, stripLegacyNoteFromDish: false };
   if (entryId.endsWith(ATTACHED_NOTE_SUFFIX)) {
@@ -311,16 +318,10 @@ export function groupPlanByDate(entries) {
       byDate.set(date, {
         date,
         dateLabel: formatDishDateWithWeekday(date),
-        eventNotes: [],
         slotItems: [],
       });
     }
-    const group = byDate.get(date);
-    if (isEventScopeNote(entry)) {
-      group.eventNotes.push(entry);
-    } else {
-      group.slotItems.push(entry);
-    }
+    byDate.get(date).slotItems.push(entry);
   }
 
   return [...byDate.values()].map((group) => {
@@ -344,11 +345,24 @@ export function groupPlanByDate(entries) {
     return {
       date: group.date,
       dateLabel: group.dateLabel,
-      eventNotes: group.eventNotes,
       slots: slots.map((slot) => {
         const { dishes, slotNotes, attachedByDish } = partitionSlotItems(slot.items);
         return { ...slot, dishes, slotNotes, attachedByDish };
       }),
     };
   });
+}
+
+/** Event-wide notes (sem hora/local) + dated slots for the plan log. */
+export function buildPlanLogLayout(entries, legacyNotes) {
+  const prepared = prepareEntriesForDisplay(entries, legacyNotes);
+  const eventScopeNotes = prepared
+    .filter(isEventScopeNote)
+    .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  const datedEntries = prepared.filter((entry) => !isEventScopeNote(entry));
+
+  return {
+    eventScopeNotes,
+    dateGroups: groupPlanByDate(datedEntries),
+  };
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { List, Loader2, Plus } from 'lucide-react';
 import EventFormModal from '../components/EventFormModal';
 import NovoItemModal from '../components/NovoItemModal';
 import QuickNoteCard from '../components/QuickNoteCard';
@@ -7,7 +7,16 @@ import { EventTitleBlock } from '../components/EventTitleBlock';
 import { useEventDetails } from '../hooks/useEventDetails';
 import { useEvents } from '../hooks/useEvents';
 import { useInboxItems } from '../hooks/useInboxItems';
+import { formatDishDateWithWeekday } from '../utils/dishes';
+import { dateToInputValue } from '../utils/eventFields';
 import { buildDashboardCards } from '../utils/dashboardCards';
+
+function cardDateKey(card) {
+  if (card.type === 'event') {
+    return card.event.eventDate ? dateToInputValue(card.event.eventDate) : '';
+  }
+  return (card.item.date ?? '').trim();
+}
 
 function EventCard({ event, index, highlighted, itemTarget, onSelect, onUpdate, onQuickAdd }) {
   const tint = index % 2 === 0 ? 'bg-post-it' : 'bg-post-it-blue';
@@ -26,7 +35,6 @@ function EventCard({ event, index, highlighted, itemTarget, onSelect, onUpdate, 
       className={`group relative flex min-h-[7rem] w-full cursor-pointer rounded-2xl border border-amber-200/70 p-4 pr-12 shadow-md transition hover:shadow-lg active:scale-[0.99] ${tint} ${
         highlighted ? 'ring-2 ring-slate-900/25' : ''
       } ${itemTarget ? 'ring-2 ring-amber-400/80' : ''}`}
-      style={{ transform: index % 2 === 0 ? 'rotate(-0.4deg)' : 'rotate(0.35deg)' }}
     >
       <button
         type="button"
@@ -55,7 +63,7 @@ function EventCard({ event, index, highlighted, itemTarget, onSelect, onUpdate, 
   );
 }
 
-export default function Dashboard({ onSelectEvent, onSelectNote }) {
+export default function Dashboard({ onSelectEvent, onSelectNote, onOpenItemsList }) {
   const { events, loading, error, addEvent, updateEvent } = useEvents();
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -168,12 +176,23 @@ export default function Dashboard({ onSelectEvent, onSelectNote }) {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Bairro Alto Hotel
             </p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Eventos</h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Agenda</h1>
             <p className="mt-0.5 text-xs text-slate-500">
-              Notas e eventos no mesmo mural · duplo clique para editar
+              Próximos eventos e notas · por ordem cronológica
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            {onOpenItemsList && (
+              <button
+                type="button"
+                onClick={onOpenItemsList}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+              >
+                <List className="h-4 w-4" aria-hidden />
+                <span className="hidden sm:inline">Itens</span>
+                <span className="sm:hidden">Lista</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => openNovoItemModal()}
@@ -212,16 +231,26 @@ export default function Dashboard({ onSelectEvent, onSelectNote }) {
 
         {!loading && !error && dashboardCards.length === 0 && (
           <div className="rounded-2xl border border-dashed border-amber-300 bg-post-it px-6 py-12 text-center text-slate-600 shadow-sm">
-            <p className="font-medium text-slate-800">Sem eventos</p>
+            <p className="font-medium text-slate-800">Nada agendado</p>
             <p className="mt-2 text-sm">
-              Use &quot;Novo Item&quot; para uma nota rápida ou &quot;Novo Evento&quot;.
+              Sem eventos ou notas futuras. Use &quot;Novo Item&quot; ou &quot;Novo Evento&quot;.
             </p>
           </div>
         )}
 
         <ul className="space-y-4">
-          {dashboardCards.map((card, index) => (
-            <li key={card.key}>
+          {dashboardCards.map((card, index) => {
+            const dateKey = cardDateKey(card);
+            const prevKey = index > 0 ? cardDateKey(dashboardCards[index - 1]) : null;
+            const showDateHeading = dateKey !== prevKey;
+
+            return (
+            <li key={card.key} className="space-y-2">
+              {showDateHeading && (
+                <h2 className="border-b border-amber-300/80 pb-1 text-sm font-bold text-slate-800">
+                  {dateKey ? formatDishDateWithWeekday(dateKey) : 'Sem data'}
+                </h2>
+              )}
               {card.type === 'note' ? (
                 <QuickNoteCard
                   item={card.item}
@@ -242,7 +271,8 @@ export default function Dashboard({ onSelectEvent, onSelectNote }) {
                 />
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
 

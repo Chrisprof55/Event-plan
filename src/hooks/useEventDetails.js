@@ -153,24 +153,54 @@ export function useEventDetails(eventId) {
     [details.dishes, addEntry],
   );
 
+  const applyEntryFields = (entry, fields) => {
+    const next = { ...entry, ...fields };
+    if (isNoteEntry(entry) || entry.entryType === 'note') {
+      if ('text' in fields) next.text = (fields.text ?? '').trim();
+      next.entryType = 'note';
+    } else {
+      if ('quantity' in fields) {
+        next.quantity = Math.max(1, Number(fields.quantity) || 1);
+      }
+      if ('name' in fields) next.name = (fields.name ?? '').trim();
+    }
+    if ('date' in fields) next.date = (fields.date ?? '').trim();
+    if ('time' in fields) next.time = (fields.time ?? '').trim();
+    if ('location' in fields) next.location = (fields.location ?? '').trim();
+    return next;
+  };
+
   const updateEntry = useCallback(
     async (entryId, fields) => {
+      const dishes = details.dishes.map((entry) =>
+        entry.id === entryId ? applyEntryFields(entry, fields) : entry,
+      );
+      await persist({ ...details, dishes });
+    },
+    [details, persist],
+  );
+
+  const updateDishAnchor = useCallback(
+    async (dishId, fields, noteUpdates = []) => {
+      const anchor = {};
+      if ('date' in fields) anchor.date = (fields.date ?? '').trim();
+      if ('time' in fields) anchor.time = (fields.time ?? '').trim();
+      if ('location' in fields) anchor.location = (fields.location ?? '').trim();
+
+      const noteById = new Map(noteUpdates.map((n) => [n.id, n]));
+
       const dishes = details.dishes.map((entry) => {
-        if (entry.id !== entryId) return entry;
-        const next = { ...entry, ...fields };
-        if (isNoteEntry(entry) || entry.entryType === 'note') {
-          if ('text' in fields) next.text = (fields.text ?? '').trim();
-          next.entryType = 'note';
-        } else {
-          if ('quantity' in fields) {
-            next.quantity = Math.max(1, Number(fields.quantity) || 1);
-          }
-          if ('name' in fields) next.name = (fields.name ?? '').trim();
+        if (entry.id === dishId) {
+          return applyEntryFields(entry, fields);
         }
-        if ('date' in fields) next.date = (fields.date ?? '').trim();
-        if ('time' in fields) next.time = (fields.time ?? '').trim();
-        if ('location' in fields) next.location = (fields.location ?? '').trim();
-        return next;
+        if (entry.attachedDishId === dishId) {
+          const notePatch = noteById.get(entry.id);
+          return applyEntryFields(
+            { ...entry, ...anchor },
+            notePatch ? { text: notePatch.text } : {},
+          );
+        }
+        return entry;
       });
 
       await persist({ ...details, dishes });
@@ -244,6 +274,7 @@ export function useEventDetails(eventId) {
     addEntry,
     addNoteToItem,
     updateEntry,
+    updateDishAnchor,
     removeEntry,
     updateDish,
     removeDish,
